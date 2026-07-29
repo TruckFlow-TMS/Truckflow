@@ -1,0 +1,515 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { User } from '../../../types/tms';
+import { useAuth } from '../../../context/AuthContext';
+import { mockStore } from '../../../services/mockStore';
+import { useToast } from '../../ui/Toast';
+import { ConfirmModal } from '../../ui/ConfirmModal';
+import {
+  Button, Input, Select, Modal, DataTable, Badge, Avatar,
+  StatCard, EmptyState, statusTone, humanizeStatus,
+} from '../../ui';
+import type { Column } from '../../ui';
+import { cn } from '../../../lib/cn';
+import {
+  Users as UsersIcon, Search, Plus, Edit2, Trash2, Calendar, Ban, AlertTriangle,
+} from 'lucide-react';
+
+interface UsersTabProps {
+  onReload: () => void;
+}
+
+const ITEMS_PER_PAGE = 15;
+
+const ROLE_OPTIONS = [
+  { value: 'All', label: 'All roles' },
+  { value: 'Admin', label: 'Admin' },
+  { value: 'Dispatcher/User', label: 'Dispatcher/User' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'All', label: 'All statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+];
+
+const expirationTone = (dateString?: string | null) => {
+  if (!dateString) return 'text-fg-3';
+  const days = (new Date(dateString).getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+  if (days < 0) return 'text-danger font-semibold';
+  if (days <= 7) return 'text-danger font-semibold';
+  if (days <= 14) return 'text-warn font-semibold';
+  return 'text-fg-2';
+};
+
+export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
+  const { currentUser, isAdmin } = useAuth();
+  const { showToast } = useToast();
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editItem, setEditItem] = useState<User | null>(null);
+
+  const [deleteItem, setDeleteItem] = useState<User | null>(null);
+  const [revokeItem, setRevokeItem] = useState<User | null>(null);
+  const [renewItem, setRenewItem] = useState<User | null>(null);
+  const [renewDate, setRenewDate] = useState('');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<Partial<User>>({});
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const allUsers = await mockStore.getUsers();
+      setUsers(allUsers);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const matchSearch = (u.name + ' ' + u.email + ' ' + u.username).toLowerCase().includes(search.toLowerCase());
+      const matchRole = roleFilter === 'All' || u.roleName === roleFilter;
+      const matchStatus = statusFilter === 'All' || (u.isActive ? 'ACTIVE' : 'INACTIVE') === statusFilter;
+      return matchSearch && matchRole && matchStatus;
+    });
+  }, [users, search, roleFilter, statusFilter]);
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE) || 1;
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
+
+  const kpiData = useMemo(() => {
+    const active = users.filter(u => u.isActive).length;
+    const admins = users.filter(u => u.roleName === 'Admin').length;
+    return { total: users.length, active, admins };
+  }, [users]);
+
+  const expiringUsersCount = useMemo(() => {
+    return users.filter(u => {
+      if (!u.expirationDate) return false;
+      const days = (new Date(u.expirationDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+      return days >= 0 && days <= 7;
+    }).length;
+  }, [users]);
+
+  const handleOpenModal = (user?: User) => {
+    if (user) {
+      setEditItem(user);
+      setFormData(user);
+    } else {
+      setEditItem(null);
+      setFormData({
+        roleName: 'Dispatcher/User',
+        isActive: true,
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditItem(null);
+    setFormData({});
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    setIsLoading(true);
+    try {
+      if (editItem) {
+        await mockStore.updateUser(editItem.id, formData, currentUser);
+        showToast('success', 'User updated successfully');
+      } else {
+        await mockStore.createUser(formData as any, currentUser);
+        showToast('success', 'User created successfully');
+      }
+      fetchUsers();
+      onReload();
+      handleCloseModal();
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to save user');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!currentUser || !deleteItem) return;
+    if (deleteItem.id === currentUser.id) {
+      showToast('error', 'Cannot delete yourself');
+      setDeleteItem(null);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await mockStore.deleteUser(deleteItem.id, currentUser);
+      showToast('success', 'User deleted successfully');
+      fetchUsers();
+      onReload();
+      setDeleteItem(null);
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to delete user');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!currentUser || !revokeItem) return;
+    setIsLoading(true);
+    try {
+      await mockStore.declineUserAccess(revokeItem.id, currentUser);
+      showToast('success', 'Access revoked');
+      fetchUsers();
+      onReload();
+      setRevokeItem(null);
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to revoke access');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (!currentUser || !renewItem || !renewDate) return;
+    setIsLoading(true);
+    try {
+      await mockStore.renewUserExpiration(renewItem.id, renewDate, currentUser);
+      showToast('success', 'Access renewed');
+      fetchUsers();
+      onReload();
+      setRenewItem(null);
+      setRenewDate('');
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to renew access');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6 text-fg-3 text-[12.5px] italic">
+        Permission denied. Only admins can view user management.
+      </div>
+    );
+  }
+
+  const columns: Column<User>[] = [
+    {
+      key: 'user',
+      header: 'User details',
+      width: '20%',
+      render: (u) => (
+        <span className="inline-flex items-center gap-2">
+          <Avatar name={u.name} />
+          <span>
+            <span className="font-semibold">{u.name}</span>
+            <span className="block text-[11px] text-fg-3 mt-px tnum">ID: {u.id}</span>
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email address',
+      width: '18%',
+      render: (u) => <span className="tnum">{u.email}</span>,
+    },
+    {
+      key: 'username',
+      header: 'Username',
+      width: '12%',
+      render: (u) => <span className="font-semibold text-accent tnum">{u.username}</span>,
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      width: '11%',
+      render: (u) => (
+        <Badge tone={u.roleName === 'Admin' ? 'violet' : 'accent'} dot={false}>
+          {u.roleName}
+        </Badge>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '10%',
+      render: (u) => (
+        <Badge tone={statusTone(u.isActive ? 'ACTIVE' : 'INACTIVE')}>
+          {humanizeStatus(u.isActive ? 'ACTIVE' : 'INACTIVE')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'expiration',
+      header: 'Expiration date',
+      width: '15%',
+      render: (u) => (
+        <span className={cn('tnum', expirationTone(u.expirationDate))}>
+          {u.expirationDate ? new Date(u.expirationDate).toISOString().split('T')[0] : 'Permanent (no expiry)'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: '14%',
+      align: 'right',
+      render: (u) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            onClick={() => handleOpenModal(u)}
+            title="Edit"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          {u.expirationDate && (
+            <button
+              onClick={() => setRenewItem(u)}
+              title="Renew access"
+              className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
+            >
+              <Calendar size={15} />
+            </button>
+          )}
+          {u.isActive && (
+            <button
+              onClick={() => setRevokeItem(u)}
+              title="Revoke access"
+              className="p-1.5 rounded-ctl text-warn hover:bg-surface-2 transition-colors"
+            >
+              <Ban size={15} />
+            </button>
+          )}
+          <button
+            onClick={() => setDeleteItem(u)}
+            title="Delete"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-3.5">
+      <div className="flex items-center justify-end">
+        <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+          Add user account
+        </Button>
+      </div>
+
+      {expiringUsersCount > 0 && (
+        <div className="p-3.5 rounded-card bg-warn-bg border border-bd text-[12.5px] flex items-center gap-3">
+          <AlertTriangle size={18} className="text-warn shrink-0" />
+          <div className="text-fg">
+            <span className="font-semibold tnum">{expiringUsersCount}</span> user account(s) have access
+            expiring within the next 7 days. Review the roster below to renew or revoke.
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <StatCard label="Total registered users" value={String(kpiData.total)} sub="Across all roles" />
+        <StatCard label="Active accounts" value={String(kpiData.active)} sub="Currently able to sign in" />
+        <StatCard label="System administrators" value={String(kpiData.admins)} sub="Full access role" />
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={paginatedUsers}
+        rowKey={(u) => u.id}
+        empty={
+          <EmptyState
+            icon={<UsersIcon size={30} strokeWidth={1.5} />}
+            title="No users found"
+            sub="Try a different role, status or search term."
+            action={
+              <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+                Add user account
+              </Button>
+            }
+          />
+        }
+        toolbar={
+          <>
+            <div className="relative w-full sm:w-[240px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Search name, email, username…"
+                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+              />
+            </div>
+
+            <Select
+              value={roleFilter}
+              onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+              options={ROLE_OPTIONS}
+              className="h-8 w-auto"
+            />
+
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              options={STATUS_OPTIONS}
+              className="h-8 w-auto"
+            />
+
+            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
+              Showing {paginatedUsers.length} of {filteredUsers.length}
+            </span>
+          </>
+        }
+      />
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-[12px] text-fg-2">
+          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary" size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit User Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={editItem ? 'Edit user account' : 'Add new user account'}
+        busy={isLoading}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={handleCloseModal}>Cancel</Button>
+            <Button type="submit" form="user-form" loading={isLoading}>
+              {isLoading ? 'Saving…' : 'Save user account'}
+            </Button>
+          </>
+        }
+      >
+        <form id="user-form" onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Input
+              label="Full name*"
+              required
+              value={formData.name || ''}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+          <Input
+            label="Email address*"
+            required
+            type="email"
+            value={formData.email || ''}
+            onChange={e => setFormData({ ...formData, email: e.target.value })}
+          />
+          <Input
+            label="Username*"
+            required
+            value={formData.username || ''}
+            onChange={e => setFormData({ ...formData, username: e.target.value })}
+          />
+          <Select
+            label="Role*"
+            required
+            value={formData.roleName || 'Dispatcher/User'}
+            onChange={e => setFormData({ ...formData, roleName: e.target.value })}
+            options={[
+              { value: 'Dispatcher/User', label: 'Dispatcher/User' },
+              { value: 'Admin', label: 'Admin' },
+            ]}
+          />
+          <Input
+            label="Expiration date (optional)"
+            type="date"
+            hint="Leave blank for permanent access"
+            value={formData.expirationDate || ''}
+            onChange={e => setFormData({ ...formData, expirationDate: e.target.value || undefined })}
+          />
+        </form>
+      </Modal>
+
+      {/* Renew Access Modal */}
+      <Modal
+        isOpen={!!renewItem}
+        onClose={() => setRenewItem(null)}
+        title="Renew user access"
+        size="sm"
+        busy={isLoading}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRenewItem(null)} disabled={isLoading}>Cancel</Button>
+            <Button onClick={handleRenew} loading={isLoading} disabled={!renewDate}>
+              Renew access
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="New expiration date*"
+          type="date"
+          value={renewDate}
+          onChange={(e) => setRenewDate(e.target.value)}
+        />
+      </Modal>
+
+      {revokeItem && (
+        <ConfirmModal
+          isOpen={!!revokeItem}
+          title="Revoke user access"
+          message={`Are you sure you want to revoke access for ${revokeItem.name}?`}
+          isDanger={true}
+          onConfirm={handleRevoke}
+          onCancel={() => setRevokeItem(null)}
+          isLoading={isLoading}
+        />
+      )}
+
+      {deleteItem && (
+        <ConfirmModal
+          isOpen={!!deleteItem}
+          title="Delete user account"
+          message={`Are you sure you want to delete ${deleteItem.name}?`}
+          isDanger={true}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteItem(null)}
+          isLoading={isLoading}
+        />
+      )}
+    </div>
+  );
+};
