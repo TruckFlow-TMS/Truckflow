@@ -3,8 +3,15 @@ import { Invoice, Load, Customer } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
-import { ConfirmModal } from '../ui/ConfirmModal';
-import { DollarSign, Search, Plus, Edit2, Trash2, Filter, CheckCircle2, AlertTriangle, FileText, Ban } from 'lucide-react';
+import {
+  Button, Card, Input, Select, Modal, ConfirmModal, PageHeader, DataTable,
+  Badge, StatCard, EmptyState, statusTone, humanizeStatus,
+} from '../ui';
+import type { Column } from '../ui';
+import {
+  Search, Plus, Edit2, Trash2, CheckCircle2, FileText, Ban,
+  ChevronLeft, ChevronRight,
+} from 'lucide-react';
 
 interface BillingViewProps {
   invoices: Invoice[];
@@ -14,6 +21,23 @@ interface BillingViewProps {
 }
 
 const ITEMS_PER_PAGE = 15;
+
+const STATUS_OPTIONS = [
+  { value: 'All', label: 'All statuses' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'ISSUED', label: 'Issued' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'VOID', label: 'Void' },
+];
+
+const FORM_STATUS_OPTIONS = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'ISSUED', label: 'Issued' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'VOID', label: 'Void' },
+];
 
 export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, customers = [], onReload }) => {
   const { currentUser } = useAuth();
@@ -39,7 +63,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     });
   }, [invoices, search, statusFilter, customers]);
 
-  const totalPages = Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE) || 1;
   const paginatedInvoices = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredInvoices.slice(start, start + ITEMS_PER_PAGE);
@@ -96,7 +120,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    
+
     setIsLoading(true);
     try {
       if (editItem) {
@@ -175,267 +199,299 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
 
   const deliveredLoadsReady = loads.filter(l => l.status === 'DELIVERED' && !invoices.some(i => i.loadId === l.id));
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Billing, Factoring & Invoices</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            RTS Financial recourse factoring, driver settlements, AR aging, & manual invoices.
-          </p>
-        </div>
-
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5 self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>+ Manual Invoice</span>
-        </button>
-      </div>
-
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Accounts Receivable</span>
-            <div className="text-2xl font-extrabold font-mono text-blue-600 dark:text-blue-400 mt-1">{formatCurrency(kpiData.totalAr)}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
-            <DollarSign size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Collected This Month</span>
-            <div className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(kpiData.collectedThisMonth)}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-            <CheckCircle2 size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Overdue Invoices</span>
-            <div className="text-2xl font-extrabold font-mono text-rose-600 dark:text-rose-400 mt-1">{kpiData.overdueCount}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20">
-            <AlertTriangle size={20} />
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <Search size={15} />
-          </div>
-          <input 
-            type="text" 
-            placeholder="Search Invoice #, customer..." 
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Filter size={15} className="text-slate-400" />
-          <select 
-            className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+  const columns: Column<Invoice>[] = [
+    {
+      key: 'invoice',
+      header: 'Invoice #',
+      width: '13%',
+      render: (inv) => <span className="font-semibold text-accent tnum">{inv.invoiceNumber}</span>,
+    },
+    {
+      key: 'load',
+      header: 'Load #',
+      width: '10%',
+      render: (inv) => (
+        <span className="tnum text-fg-2">{loads.find(l => l.id === inv.loadId)?.loadNumber || '—'}</span>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      width: '17%',
+      render: (inv) => (
+        <span className="font-medium">{customers.find(c => c.id === inv.customerId)?.name || inv.customerId || '—'}</span>
+      ),
+    },
+    {
+      key: 'dates',
+      header: 'Dates',
+      width: '15%',
+      render: (inv) => (
+        <>
+          <span className="block text-[12px] tnum">Issued {inv.issueDate}</span>
+          <span className="block text-[11px] text-fg-3 mt-px tnum">Due {inv.dueDate}</span>
+        </>
+      ),
+    },
+    {
+      key: 'total',
+      header: 'Total amount',
+      width: '13%',
+      align: 'right',
+      render: (inv) => formatCurrency(inv.totalMinor),
+    },
+    {
+      key: 'driverPay',
+      header: 'Driver settlement',
+      width: '13%',
+      align: 'right',
+      render: (inv) => formatCurrency(inv.driverPayMinor),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '10%',
+      render: (inv) => <Badge tone={statusTone(inv.status)}>{humanizeStatus(inv.status)}</Badge>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: '9%',
+      align: 'right',
+      render: (inv) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleOpenModal(inv); }}
+            title="Edit invoice"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
-            <option value="All">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="ISSUED">Issued</option>
-            <option value="PAID">Paid</option>
-            <option value="OVERDUE">Overdue</option>
-            <option value="VOID">Void</option>
-          </select>
+            <Edit2 size={15} />
+          </button>
+          {(inv.status === 'ISSUED' || inv.status === 'OVERDUE') && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleMarkPaid(inv); }}
+              title="Mark paid"
+              className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
+            >
+              <CheckCircle2 size={15} />
+            </button>
+          )}
+          {inv.status === 'ISSUED' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setVoidItem(inv); }}
+              title="Void invoice"
+              className="p-1.5 rounded-ctl text-warn hover:bg-surface-2 transition-colors"
+            >
+              <Ban size={15} />
+            </button>
+          )}
+          {(inv.status === 'DRAFT' || inv.status === 'ISSUED') && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setDeleteItem(inv); }}
+              title="Delete invoice"
+              className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
+      ),
+    },
+  ];
+
+  const customerOptions = [
+    { value: '', label: 'Select customer' },
+    ...customers.map(c => ({ value: c.id, label: c.name })),
+  ];
+
+  return (
+    <div className="space-y-3.5">
+      <PageHeader
+        title="Billing, Factoring & Invoices"
+        subtitle="RTS Financial recourse factoring, driver settlements, AR aging, & manual invoices."
+        actions={
+          <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+            Manual invoice
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard
+          variant="hero"
+          label="Total accounts receivable"
+          value={formatCurrency(kpiData.totalAr)}
+          sub="Issued + overdue balance"
+        />
+        <StatCard
+          label="Collected this month"
+          value={formatCurrency(kpiData.collectedThisMonth)}
+          sub="Paid invoices"
+        />
+        <StatCard
+          label="Overdue invoices"
+          value={String(kpiData.overdueCount)}
+          sub={kpiData.overdueCount > 0 ? <span className="text-danger font-semibold">Needs follow-up</span> : 'All current'}
+        />
       </div>
 
-      {/* Invoices Table */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                <th className="p-4">Invoice #</th>
-                <th className="p-4">Load #</th>
-                <th className="p-4">Customer</th>
-                <th className="p-4">Dates</th>
-                <th className="p-4">Total Amount</th>
-                <th className="p-4">Driver Settlement</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
-              {paginatedInvoices.length > 0 ? paginatedInvoices.map(inv => (
-                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                  <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">{inv.invoiceNumber}</td>
-                  <td className="p-4 font-mono text-slate-700 dark:text-slate-300">{loads.find(l => l.id === inv.loadId)?.loadNumber || '-'}</td>
-                  <td className="p-4 text-slate-900 dark:text-slate-200 font-medium">{customers.find(c => c.id === inv.customerId)?.name || inv.customerId}</td>
-                  <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                    <div>Issued: {inv.issueDate}</div>
-                    <div>Due: {inv.dueDate}</div>
-                  </td>
-                  <td className="p-4 font-mono font-bold text-slate-900 dark:text-white text-sm">{formatCurrency(inv.totalMinor)}</td>
-                  <td className="p-4 font-mono text-slate-700 dark:text-slate-300">{formatCurrency(inv.driverPayMinor)}</td>
-                  <td className="p-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
-                      inv.status === 'PAID'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                        : inv.status === 'ISSUED'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                        : inv.status === 'OVERDUE'
-                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" onClick={() => handleOpenModal(inv)} title="Edit">
-                        <Edit2 size={15} />
-                      </button>
-                      {(inv.status === 'ISSUED' || inv.status === 'OVERDUE') && (
-                        <button className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Mark Paid" onClick={() => handleMarkPaid(inv)}>
-                          <CheckCircle2 size={15} />
-                        </button>
-                      )}
-                      {inv.status === 'ISSUED' && (
-                        <button className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Void" onClick={() => setVoidItem(inv)}>
-                          <Ban size={15} />
-                        </button>
-                      )}
-                      {(inv.status === 'DRAFT' || inv.status === 'ISSUED') && (
-                        <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Delete" onClick={() => setDeleteItem(inv)}>
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={8} className="p-12 text-center text-slate-500 text-xs italic">
-                    No invoices found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={paginatedInvoices}
+        rowKey={(inv) => inv.id}
+        empty={
+          <EmptyState
+            icon={<FileText size={30} strokeWidth={1.5} />}
+            title="No invoices found"
+            sub="Try a different status or search term."
+            action={
+              <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+                Add manual invoice
+              </Button>
+            }
+          />
+        }
+        toolbar={
+          <>
+            <div className="relative w-full sm:w-[240px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Search invoice #, customer…"
+                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+              />
+            </div>
 
-      {/* Pagination Footer */}
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              options={STATUS_OPTIONS}
+              className="h-8 w-auto"
+            />
+
+            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
+              Showing {paginatedInvoices.length} of {filteredInvoices.length}
+            </span>
+          </>
+        }
+      />
+
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Page {currentPage} of {totalPages}</span>
-          <div className="flex space-x-2">
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
+        <div className="flex items-center justify-between text-[12px] text-fg-2">
+          <span className="tnum">
+            Page {currentPage} of {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary" size="sm"
+              icon={<ChevronLeft size={13} />}
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
               Previous
-            </button>
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-              Next
-            </button>
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Next <ChevronRight size={13} />
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Delivered Loads Ready for Invoicing */}
       {deliveredLoadsReady.length > 0 && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-            <FileText size={16} className="text-emerald-600 dark:text-emerald-400" />
-            <span>Delivered Loads Ready for Invoicing</span>
-          </h2>
-          <div className="space-y-3">
+        <Card
+          header={
+            <h2 className="text-[13.5px] font-semibold text-fg flex items-center gap-2">
+              <FileText size={16} className="text-pos" />
+              <span>Delivered loads ready for invoicing</span>
+            </h2>
+          }
+        >
+          <div className="space-y-2.5">
             {deliveredLoadsReady.map(l => (
-              <div key={l.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div key={l.id} className="p-3 rounded-ctl bg-surface-2 border border-bd flex items-center justify-between">
                 <div>
-                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs mr-3">Load {l.loadNumber}</span>
-                  <span className="text-slate-700 dark:text-slate-300 text-xs">Total: {formatCurrency(l.rateMinor)}</span>
+                  <span className="font-semibold text-accent tnum text-[13px] mr-3">Load {l.loadNumber}</span>
+                  <span className="text-fg-2 text-[13px]">Total: {formatCurrency(l.rateMinor)}</span>
                 </div>
-                <button className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center space-x-1" onClick={() => handleGenerateInvoice(l.id)}>
-                  <FileText size={13} />
-                  <span>Generate Invoice</span>
-                </button>
+                <Button size="sm" icon={<FileText size={13} />} onClick={() => handleGenerateInvoice(l.id)}>
+                  Generate invoice
+                </Button>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Manual Invoice Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl w-full max-w-xl shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{editItem ? 'Edit Invoice' : 'Add Manual Invoice'}</h2>
-              <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-900 dark:hover:text-white">✕</button>
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Invoice Number*</label>
-                <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.invoiceNumber || ''} onChange={e => setFormData({...formData, invoiceNumber: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Customer*</label>
-                <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.customerId || ''} onChange={e => setFormData({...formData, customerId: e.target.value})}>
-                  <option value="">Select Customer</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Issue Date*</label>
-                  <input required type="date" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.issueDate || ''} onChange={e => setFormData({...formData, issueDate: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Due Date*</label>
-                  <input required type="date" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.dueDate || ''} onChange={e => setFormData({...formData, dueDate: e.target.value})} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Subtotal ($)*</label>
-                <input required type="number" step="0.01" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.subtotalMinor !== undefined ? formData.subtotalMinor / 100 : ''} onChange={handleSubtotalChange} />
-              </div>
-              <div>
-                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Status</label>
-                <select className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.status || 'DRAFT'} onChange={e => setFormData({...formData, status: e.target.value as any})}>
-                  <option value="DRAFT">Draft</option>
-                  <option value="ISSUED">Issued</option>
-                  <option value="PAID">Paid</option>
-                  <option value="OVERDUE">Overdue</option>
-                  <option value="VOID">Void</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button type="button" className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition" onClick={handleCloseModal}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : 'Save Invoice'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={editItem ? 'Edit invoice' : 'Add manual invoice'}
+        busy={isLoading}
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCloseModal} disabled={isLoading}>Cancel</Button>
+            <Button type="submit" form="invoice-form" loading={isLoading}>
+              {isLoading ? 'Saving…' : 'Save invoice'}
+            </Button>
+          </>
+        }
+      >
+        <form id="invoice-form" onSubmit={handleSave} className="space-y-4">
+          <Input
+            label="Invoice number"
+            required
+            className="tnum"
+            value={formData.invoiceNumber || ''}
+            onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
+          />
+          <Select
+            label="Customer"
+            required
+            options={customerOptions}
+            value={formData.customerId || ''}
+            onChange={e => setFormData({ ...formData, customerId: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Issue date"
+              required
+              type="date"
+              className="tnum"
+              value={formData.issueDate || ''}
+              onChange={e => setFormData({ ...formData, issueDate: e.target.value })}
+            />
+            <Input
+              label="Due date"
+              required
+              type="date"
+              className="tnum"
+              value={formData.dueDate || ''}
+              onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+            />
           </div>
-        </div>
-      )}
+          <Input
+            label="Subtotal ($)"
+            required
+            type="number"
+            step="0.01"
+            className="tnum"
+            value={formData.subtotalMinor !== undefined ? formData.subtotalMinor / 100 : ''}
+            onChange={handleSubtotalChange}
+          />
+          <Select
+            label="Status"
+            options={FORM_STATUS_OPTIONS}
+            value={formData.status || 'DRAFT'}
+            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+          />
+        </form>
+      </Modal>
 
       {voidItem && (
         <ConfirmModal
