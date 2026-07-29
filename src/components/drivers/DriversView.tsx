@@ -4,7 +4,12 @@ import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
-import { Users, Search, Plus, Edit2, Trash2, Filter, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  Button, Input, Select, Modal, PageHeader, DataTable, Badge, Avatar,
+  EmptyState, statusTone, humanizeStatus,
+} from '../ui';
+import type { Column } from '../ui';
+import { Users, Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DriversViewProps {
   drivers: Driver[];
@@ -12,6 +17,19 @@ interface DriversViewProps {
 }
 
 const ITEMS_PER_PAGE = 15;
+
+const STATUS_OPTIONS = [
+  { value: 'All', label: 'All statuses' },
+  { value: 'AVAILABLE', label: 'Available' },
+  { value: 'ON_LOAD', label: 'On load' },
+  { value: 'INACTIVE', label: 'Inactive' },
+];
+
+const TYPE_OPTIONS = [
+  { value: 'All', label: 'All employment types' },
+  { value: 'COMPANY_DRIVER', label: 'Company driver' },
+  { value: 'OWNER_OPERATOR', label: 'Owner operator' },
+];
 
 export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) => {
   const { currentUser } = useAuth();
@@ -39,7 +57,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
     });
   }, [drivers, search, statusFilter, typeFilter]);
 
-  const totalPages = Math.ceil(filteredDrivers.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredDrivers.length / ITEMS_PER_PAGE) || 1;
   const paginatedDrivers = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredDrivers.slice(start, start + ITEMS_PER_PAGE);
@@ -70,7 +88,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    
+
     setIsLoading(true);
     try {
       if (editItem) {
@@ -91,7 +109,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
 
   const handleDelete = async () => {
     if (!currentUser || !deleteItem) return;
-    
+
     setIsLoading(true);
     try {
       await mockStore.deleteDriver(deleteItem.id, currentUser);
@@ -110,256 +128,313 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
     return new Date(dateString) < new Date();
   };
 
+  const columns: Column<Driver>[] = [
+    {
+      key: 'name',
+      header: 'Driver name',
+      width: '20%',
+      render: (d) => (
+        <span className="inline-flex items-center gap-2">
+          <Avatar name={d.name} />
+          <span>
+            <span className="font-semibold">{d.name}</span>
+            <span className="block text-[11px] text-fg-3 mt-px">{d.address || 'Address on file'}</span>
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'contact',
+      header: 'Phone / Email',
+      width: '17%',
+      render: (d) => (
+        <>
+          <span className="font-medium tnum">{d.phone}</span>
+          <span className="block text-[11px] text-fg-3 mt-px">{d.email}</span>
+        </>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      width: '13%',
+      render: (d) => (
+        <span className="px-2 py-0.5 rounded text-[10.5px] font-medium bg-surface-2 text-fg-2 border border-bd">
+          {d.employmentType === 'COMPANY_DRIVER' ? 'Company driver' : 'Owner operator'}
+        </span>
+      ),
+    },
+    {
+      key: 'cdl',
+      header: 'CDL # & expiration',
+      width: '20%',
+      render: (d) => (
+        <>
+          <span className="font-medium tnum">{d.cdlNumber} ({d.cdlClass})</span>
+          <span className="flex items-center gap-1.5 mt-px">
+            <span className="text-[11px] text-fg-3 tnum">Exp: {d.cdlExpiration}</span>
+            {isCdlExpired(d.cdlExpiration) && (
+              <Badge tone="danger" dot={false}>Expired</Badge>
+            )}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '12%',
+      render: (d) => (
+        <Badge tone={statusTone(d.status)}>{humanizeStatus(d.status)}</Badge>
+      ),
+    },
+    {
+      key: 'payRate',
+      header: 'Pay rate',
+      width: '10%',
+      render: (d) => (
+        <>
+          <span className="font-semibold tnum">
+            {d.payRateType === 'FLAT_PERCENT' ? `${d.payRateMinor}%` : `$${(d.payRateMinor / 100).toFixed(2)}`}
+          </span>
+          <span className="block text-[11px] text-fg-3 mt-px">
+            {d.payRateType === 'PER_MILE' ? '/ mile' : d.payRateType === 'PER_HOUR' ? '/ hr' : 'gross'}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: '8%',
+      align: 'right',
+      render: (d) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            onClick={() => handleOpenModal(d)}
+            title="Edit"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          <button
+            onClick={() => setDeleteItem(d)}
+            title="Delete"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Driver Roster & Qualifications</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            CDL credentials, medical cards, pay rate profiles, and assignment status.
-          </p>
-        </div>
+    <div className="space-y-3.5">
+      <PageHeader
+        title="Driver roster & qualifications"
+        subtitle="CDL credentials, medical cards, pay rate profiles, and assignment status."
+        actions={
+          <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+            Add driver
+          </Button>
+        }
+      />
 
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5 self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>+ Add Driver</span>
-        </button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <Search size={15} />
-          </div>
-          <input 
-            type="text" 
-            placeholder="Search name, phone, or CDL number..." 
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      <DataTable
+        columns={columns}
+        rows={paginatedDrivers}
+        rowKey={(d) => d.id}
+        empty={
+          <EmptyState
+            icon={<Users size={30} strokeWidth={1.5} />}
+            title="No drivers found"
+            sub="Try a different status, type or search term."
+            action={
+              <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+                Add driver
+              </Button>
+            }
           />
-        </div>
+        }
+        toolbar={
+          <>
+            <div className="relative w-full sm:w-[240px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Search name, phone, or CDL number…"
+                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+              />
+            </div>
 
-        <div className="flex items-center space-x-2">
-          <Filter size={15} className="text-slate-400" />
-          <select 
-            className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="ON_LOAD">On Load</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
-          <select 
-            className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-          >
-            <option value="All">All Employment Types</option>
-            <option value="COMPANY_DRIVER">Company Driver</option>
-            <option value="OWNER_OPERATOR">Owner Operator</option>
-          </select>
-        </div>
-      </div>
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              options={STATUS_OPTIONS}
+              className="h-8 w-auto"
+            />
 
-      {/* Drivers Table */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                <th className="p-4">Driver Name</th>
-                <th className="p-4">Phone / Email</th>
-                <th className="p-4">Type</th>
-                <th className="p-4">CDL # & Expiration</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Pay Rate</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
-              {paginatedDrivers.length > 0 ? paginatedDrivers.map(driver => (
-                <tr key={driver.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                  <td className="p-4">
-                    <div className="font-bold text-slate-900 dark:text-white text-sm">{driver.name}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{driver.address || 'Address on file'}</div>
-                  </td>
-                  <td className="p-4 text-slate-700 dark:text-slate-300">
-                    <div className="font-mono font-medium">{driver.phone}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{driver.email}</div>
-                  </td>
-                  <td className="p-4">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
-                      {driver.employmentType === 'COMPANY_DRIVER' ? 'Company Driver' : 'Owner Operator'}
-                    </span>
-                  </td>
-                  <td className="p-4 font-mono">
-                    <div className="text-slate-800 dark:text-slate-200 font-semibold">{driver.cdlNumber} ({driver.cdlClass})</div>
-                    <div className="flex items-center space-x-1.5 mt-0.5">
-                      <span className="text-[10px] text-slate-400">Exp: {driver.cdlExpiration}</span>
-                      {isCdlExpired(driver.cdlExpiration) && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                          EXPIRED
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
-                      driver.status === 'AVAILABLE'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                        : driver.status === 'ON_LOAD'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {driver.status}
-                    </span>
-                  </td>
-                  <td className="p-4 font-mono text-slate-900 dark:text-slate-200 font-semibold">
-                    {driver.payRateType === 'FLAT_PERCENT' ? `${driver.payRateMinor}%` : `$${(driver.payRateMinor / 100).toFixed(2)}`}
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-sans">
-                      {driver.payRateType === 'PER_MILE' ? '/ mile' : driver.payRateType === 'PER_HOUR' ? '/ hr' : 'gross'}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" onClick={() => handleOpenModal(driver)} title="Edit">
-                        <Edit2 size={15} />
-                      </button>
-                      <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" onClick={() => setDeleteItem(driver)} title="Delete">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-500 text-xs italic">
-                    No drivers found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            <Select
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+              options={TYPE_OPTIONS}
+              className="h-8 w-auto"
+            />
 
-      {/* Pagination Footer */}
+            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
+              Showing {paginatedDrivers.length} of {filteredDrivers.length}
+            </span>
+          </>
+        }
+      />
+
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Page {currentPage} of {totalPages}</span>
-          <div className="flex space-x-2">
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
+        <div className="flex items-center justify-between text-[12px] text-fg-2">
+          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary" size="sm"
+              icon={<ChevronLeft size={13} />}
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
               Previous
-            </button>
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-              Next
-            </button>
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Next <ChevronRight size={13} />
+            </Button>
           </div>
         </div>
       )}
 
       {/* Add / Edit Driver Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl w-full max-w-2xl shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{editItem ? 'Edit Driver Profile' : 'Add New Driver'}</h2>
-              <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-900 dark:hover:text-white">✕</button>
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Full Name*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Email*</label>
-                  <input required type="email" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Phone*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Address</label>
-                  <input className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.address || ''} onChange={e => setFormData({...formData, address: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Employment Type*</label>
-                  <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.employmentType || 'COMPANY_DRIVER'} onChange={e => setFormData({...formData, employmentType: e.target.value as any})}>
-                    <option value="COMPANY_DRIVER">Company Driver</option>
-                    <option value="OWNER_OPERATOR">Owner Operator</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Status*</label>
-                  <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.status || 'AVAILABLE'} onChange={e => setFormData({...formData, status: e.target.value as any})}>
-                    <option value="AVAILABLE">Available</option>
-                    <option value="ON_LOAD">On Load</option>
-                    <option value="INACTIVE">Inactive</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">CDL Number*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.cdlNumber || ''} onChange={e => setFormData({...formData, cdlNumber: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">CDL Class</label>
-                  <select className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.cdlClass || 'A'} onChange={e => setFormData({...formData, cdlClass: e.target.value})}>
-                    <option value="A">Class A</option>
-                    <option value="B">Class B</option>
-                    <option value="C">Class C</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">CDL Expiration*</label>
-                  <input required type="date" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.cdlExpiration || ''} onChange={e => setFormData({...formData, cdlExpiration: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Medical Card Expiration*</label>
-                  <input required type="date" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.medicalCardExpiration || ''} onChange={e => setFormData({...formData, medicalCardExpiration: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Pay Rate Type*</label>
-                  <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.payRateType || 'PER_MILE'} onChange={e => setFormData({...formData, payRateType: e.target.value as any})}>
-                    <option value="PER_MILE">Per Mile (Cents)</option>
-                    <option value="FLAT_PERCENT">Flat Gross %</option>
-                    <option value="PER_HOUR">Per Hour ($)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Pay Rate Value (cents / %)*</label>
-                  <input required type="number" step="1" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.payRateMinor || ''} onChange={e => setFormData({...formData, payRateMinor: Number(e.target.value)})} />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button type="button" className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition" onClick={handleCloseModal}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : 'Save Driver'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={editItem ? 'Edit driver profile' : 'Add new driver'}
+        busy={isLoading}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={handleCloseModal}>Cancel</Button>
+            <Button type="submit" form="driver-form" loading={isLoading}>
+              {isLoading ? 'Saving…' : 'Save driver'}
+            </Button>
+          </>
+        }
+      >
+        <form id="driver-form" onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Input
+              label="Full name*"
+              required
+              value={formData.name || ''}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+            />
           </div>
-        </div>
-      )}
+          <Input
+            label="Email*"
+            required
+            type="email"
+            value={formData.email || ''}
+            onChange={e => setFormData({ ...formData, email: e.target.value })}
+          />
+          <Input
+            label="Phone*"
+            required
+            value={formData.phone || ''}
+            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+          />
+          <div className="md:col-span-2">
+            <Input
+              label="Address"
+              value={formData.address || ''}
+              onChange={e => setFormData({ ...formData, address: e.target.value })}
+            />
+          </div>
+          <Select
+            label="Employment type*"
+            required
+            value={formData.employmentType || 'COMPANY_DRIVER'}
+            onChange={e => setFormData({ ...formData, employmentType: e.target.value as any })}
+            options={[
+              { value: 'COMPANY_DRIVER', label: 'Company driver' },
+              { value: 'OWNER_OPERATOR', label: 'Owner operator' },
+            ]}
+          />
+          <Select
+            label="Status*"
+            required
+            value={formData.status || 'AVAILABLE'}
+            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+            options={[
+              { value: 'AVAILABLE', label: 'Available' },
+              { value: 'ON_LOAD', label: 'On load' },
+              { value: 'INACTIVE', label: 'Inactive' },
+            ]}
+          />
+          <Input
+            label="CDL number*"
+            required
+            value={formData.cdlNumber || ''}
+            onChange={e => setFormData({ ...formData, cdlNumber: e.target.value })}
+          />
+          <Select
+            label="CDL class"
+            value={formData.cdlClass || 'A'}
+            onChange={e => setFormData({ ...formData, cdlClass: e.target.value })}
+            options={[
+              { value: 'A', label: 'Class A' },
+              { value: 'B', label: 'Class B' },
+              { value: 'C', label: 'Class C' },
+            ]}
+          />
+          <Input
+            label="CDL expiration*"
+            required
+            type="date"
+            value={formData.cdlExpiration || ''}
+            onChange={e => setFormData({ ...formData, cdlExpiration: e.target.value })}
+          />
+          <Input
+            label="Medical card expiration*"
+            required
+            type="date"
+            value={formData.medicalCardExpiration || ''}
+            onChange={e => setFormData({ ...formData, medicalCardExpiration: e.target.value })}
+          />
+          <Select
+            label="Pay rate type*"
+            required
+            value={formData.payRateType || 'PER_MILE'}
+            onChange={e => setFormData({ ...formData, payRateType: e.target.value as any })}
+            options={[
+              { value: 'PER_MILE', label: 'Per mile (cents)' },
+              { value: 'FLAT_PERCENT', label: 'Flat gross %' },
+              { value: 'PER_HOUR', label: 'Per hour ($)' },
+            ]}
+          />
+          <Input
+            label="Pay rate value (cents / %)*"
+            required
+            type="number"
+            step="1"
+            value={formData.payRateMinor ?? ''}
+            onChange={e => setFormData({ ...formData, payRateMinor: Number(e.target.value) })}
+          />
+        </form>
+      </Modal>
 
       {deleteItem && (
         <ConfirmModal
           isOpen={!!deleteItem}
-          title="Delete Driver"
+          title="Delete driver"
           message={`Are you sure you want to delete ${deleteItem.name}?`}
           isDanger={true}
           onConfirm={handleDelete}

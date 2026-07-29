@@ -4,7 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
-import { Truck, Search, Plus, Edit2, Trash2, Filter, ShieldCheck, Wrench, Calendar } from 'lucide-react';
+import {
+  Button, Input, Select, Modal, PageHeader, DataTable, Badge, StatCard,
+  EmptyState, statusTone, humanizeStatus,
+} from '../ui';
+import type { Column } from '../ui';
+import { cn } from '../../lib/cn';
+import { Truck, Search, Plus, Edit2, Trash2, ShieldCheck, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface FleetViewProps {
   equipment: Equipment[];
@@ -13,6 +19,13 @@ interface FleetViewProps {
 }
 
 const ITEMS_PER_PAGE = 15;
+
+const STATUS_OPTIONS = [
+  { value: 'All', label: 'All statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'MAINTENANCE', label: 'Maintenance' },
+  { value: 'OUT_OF_SERVICE', label: 'Out of service' },
+];
 
 export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onReload }) => {
   const { currentUser } = useAuth();
@@ -38,7 +51,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     });
   }, [equipment, activeTab, search, statusFilter]);
 
-  const totalPages = Math.ceil(filteredEquipment.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredEquipment.length / ITEMS_PER_PAGE) || 1;
   const paginatedEquipment = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredEquipment.slice(start, start + ITEMS_PER_PAGE);
@@ -74,7 +87,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    
+
     setIsLoading(true);
     try {
       if (editItem) {
@@ -95,7 +108,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
 
   const handleDelete = async () => {
     if (!currentUser || !deleteItem) return;
-    
+
     setIsLoading(true);
     try {
       await mockStore.deleteEquipment(deleteItem.id, currentUser);
@@ -123,270 +136,311 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     return driver ? driver.name : 'Unknown';
   };
 
+  const columns: Column<Equipment>[] = useMemo(() => {
+    const base: Column<Equipment>[] = [
+      {
+        key: 'unit',
+        header: 'Unit #',
+        width: '10%',
+        render: (eq) => <span className="font-semibold text-accent tnum">{eq.unitNumber}</span>,
+      },
+      {
+        key: 'makeModel',
+        header: 'Year / make / model',
+        width: '18%',
+        render: (eq) => (
+          <>
+            <span className="font-medium">{eq.makeModel}</span>
+            <span className="block text-[11px] text-fg-3 mt-px tnum">Year: {eq.year}</span>
+          </>
+        ),
+      },
+      {
+        key: 'vin',
+        header: 'VIN number',
+        width: '16%',
+        render: (eq) => <span className="text-fg-2 text-[12px] tnum">{eq.vin}</span>,
+      },
+      {
+        key: 'plate',
+        header: 'License plate',
+        width: '10%',
+        render: (eq) => <span className="tnum">{eq.licensePlate || '—'}</span>,
+      },
+      {
+        key: 'inspection',
+        header: 'Annual inspection',
+        width: '16%',
+        render: (eq) => (
+          <>
+            <span className="tnum">{eq.inspectionDueDate}</span>
+            {isInspectionOverdue(eq.inspectionDueDate) && (
+              <span className="block mt-0.5">
+                <Badge tone="danger" dot={false}>Overdue</Badge>
+              </span>
+            )}
+          </>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        width: '12%',
+        render: (eq) => <Badge tone={statusTone(eq.status)}>{humanizeStatus(eq.status)}</Badge>,
+      },
+    ];
+
+    if (activeTab === 'TRUCK') {
+      base.push({
+        key: 'driver',
+        header: 'Assigned driver',
+        width: '13%',
+        render: (eq) => <span className="font-medium">{getDriverName(eq.assignedDriverId)}</span>,
+      });
+    }
+
+    base.push({
+      key: 'actions',
+      header: '',
+      width: '8%',
+      align: 'right',
+      render: (eq) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            onClick={() => handleOpenModal(eq)}
+            title="Edit"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          <button
+            onClick={() => setDeleteItem(eq)}
+            title="Delete"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    });
+
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, drivers]);
+
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Fleet & Asset Roster</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Truck & trailer inventory, VIN numbers, annual inspection dates, & driver assignments.
-          </p>
-        </div>
+    <div className="space-y-3.5">
+      <PageHeader
+        title="Fleet & asset roster"
+        subtitle="Truck & trailer inventory, VIN numbers, annual inspection dates, & driver assignments."
+        actions={
+          <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+            Add equipment
+          </Button>
+        }
+      />
 
-        <button
-          onClick={() => handleOpenModal()}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5 self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>+ Add Equipment</span>
-        </button>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          label="Total power units (trucks)"
+          value={String(kpiData.trucks)}
+          sub="Active fleet"
+        />
+        <StatCard
+          label="Total trailers"
+          value={String(kpiData.trailers)}
+          sub="Active fleet"
+        />
+        <StatCard
+          label="In maintenance"
+          value={String(kpiData.maintenance)}
+          sub={kpiData.maintenance > 0 ? <span className="text-warn font-semibold">Needs attention</span> : 'All clear'}
+        />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Power Units (Trucks)</span>
-            <div className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white mt-1">{kpiData.trucks}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
-            <Truck size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Trailers</span>
-            <div className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">{kpiData.trailers}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-            <ShieldCheck size={20} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">In Maintenance</span>
-            <div className="text-2xl font-extrabold font-mono text-rose-600 dark:text-rose-400 mt-1">{kpiData.maintenance}</div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20">
-            <Wrench size={20} />
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs & Search */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 space-x-1">
-          <button 
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'TRUCK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-            onClick={() => { setActiveTab('TRUCK'); setCurrentPage(1); }}
-          >
-            Trucks ({kpiData.trucks})
-          </button>
-          <button 
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'TRAILER' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-            onClick={() => { setActiveTab('TRAILER'); setCurrentPage(1); }}
-          >
-            Trailers ({kpiData.trailers})
-          </button>
-        </div>
-
-        <div className="flex items-center space-x-3 flex-1 max-w-md">
-          <div className="relative w-full">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Search size={15} />
+      <DataTable
+        columns={columns}
+        rows={paginatedEquipment}
+        rowKey={(eq) => eq.id}
+        empty={
+          <EmptyState
+            icon={<Truck size={30} strokeWidth={1.5} />}
+            title={`No ${activeTab.toLowerCase()}s found`}
+            sub="Try a different status or search term."
+            action={
+              <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
+                Add equipment
+              </Button>
+            }
+          />
+        }
+        toolbar={
+          <>
+            <div className="flex bg-surface-2 p-1 rounded-ctl border border-bd gap-1">
+              <button
+                className={cn(
+                  'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
+                  activeTab === 'TRUCK' ? 'bg-accent-grad text-on-accent shadow-card' : 'text-fg-2 hover:text-fg',
+                )}
+                onClick={() => { setActiveTab('TRUCK'); setCurrentPage(1); }}
+              >
+                <ShieldCheck size={13} className="inline -mt-0.5 mr-1" />
+                Trucks ({kpiData.trucks})
+              </button>
+              <button
+                className={cn(
+                  'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
+                  activeTab === 'TRAILER' ? 'bg-accent-grad text-on-accent shadow-card' : 'text-fg-2 hover:text-fg',
+                )}
+                onClick={() => { setActiveTab('TRAILER'); setCurrentPage(1); }}
+              >
+                <Wrench size={13} className="inline -mt-0.5 mr-1" />
+                Trailers ({kpiData.trailers})
+              </button>
             </div>
-            <input 
-              type="text" 
-              placeholder="Search Unit #, VIN, Make/Model..." 
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+
+            <div className="relative w-full sm:w-[220px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Search unit #, VIN, make/model…"
+                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+              />
+            </div>
+
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              options={STATUS_OPTIONS}
+              className="h-8 w-auto"
             />
-          </div>
 
-          <select 
-            className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="MAINTENANCE">Maintenance</option>
-            <option value="OUT_OF_SERVICE">Out of Service</option>
-          </select>
-        </div>
-      </div>
+            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
+              Showing {paginatedEquipment.length} of {filteredEquipment.length}
+            </span>
+          </>
+        }
+      />
 
-      {/* Equipment Table */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                <th className="p-4">Unit #</th>
-                <th className="p-4">Year / Make / Model</th>
-                <th className="p-4">VIN Number</th>
-                <th className="p-4">License Plate</th>
-                <th className="p-4">Annual Inspection</th>
-                <th className="p-4">Status</th>
-                {activeTab === 'TRUCK' && <th className="p-4">Assigned Driver</th>}
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
-              {paginatedEquipment.length > 0 ? paginatedEquipment.map(eq => (
-                <tr key={eq.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                  <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">{eq.unitNumber}</td>
-                  <td className="p-4 text-slate-900 dark:text-slate-200">
-                    <div className="font-semibold">{eq.makeModel}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">Year: {eq.year}</div>
-                  </td>
-                  <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-[11px]">{eq.vin}</td>
-                  <td className="p-4 font-mono text-slate-700 dark:text-slate-300">{eq.licensePlate}</td>
-                  <td className="p-4 font-mono">
-                    <div className="text-slate-700 dark:text-slate-300">{eq.inspectionDueDate}</div>
-                    {isInspectionOverdue(eq.inspectionDueDate) && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 inline-block mt-0.5">
-                        INSPECTION OVERDUE
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
-                      eq.status === 'ACTIVE'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                        : eq.status === 'MAINTENANCE'
-                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                    }`}>
-                      {eq.status}
-                    </span>
-                  </td>
-                  {activeTab === 'TRUCK' && (
-                    <td className="p-4 text-slate-700 dark:text-slate-300 font-medium">{getDriverName(eq.assignedDriverId)}</td>
-                  )}
-                  <td className="p-4">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" onClick={() => handleOpenModal(eq)} title="Edit">
-                        <Edit2 size={15} />
-                      </button>
-                      <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" onClick={() => setDeleteItem(eq)} title="Delete">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={activeTab === 'TRUCK' ? 8 : 7} className="p-12 text-center text-slate-500 text-xs italic">
-                    No {activeTab.toLowerCase()}s found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Page {currentPage} of {totalPages}</span>
-          <div className="flex space-x-2">
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}>
+        <div className="flex items-center justify-between text-[12px] text-fg-2">
+          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary" size="sm"
+              icon={<ChevronLeft size={13} />}
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
               Previous
-            </button>
-            <button className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition" disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}>
-              Next
-            </button>
+            </Button>
+            <Button
+              variant="secondary" size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Next <ChevronRight size={13} />
+            </Button>
           </div>
         </div>
       )}
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl w-full max-w-2xl shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{editItem ? 'Edit Equipment Unit' : 'Add New Equipment'}</h2>
-              <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-900 dark:hover:text-white">✕</button>
+      <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={editItem ? 'Edit equipment unit' : 'Add new equipment'}
+        busy={isLoading}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={handleCloseModal}>Cancel</Button>
+            <Button type="submit" form="equipment-form" loading={isLoading}>
+              {isLoading ? 'Saving…' : 'Save equipment'}
+            </Button>
+          </>
+        }
+      >
+        <form id="equipment-form" onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="Equipment type*"
+            required
+            value={formData.type || 'TRUCK'}
+            onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+            options={[
+              { value: 'TRUCK', label: 'Truck (power unit)' },
+              { value: 'TRAILER', label: 'Trailer' },
+            ]}
+          />
+          <Input
+            label="Unit number*"
+            required
+            value={formData.unitNumber || ''}
+            onChange={e => setFormData({ ...formData, unitNumber: e.target.value })}
+          />
+          <Input
+            label="VIN number*"
+            required
+            value={formData.vin || ''}
+            onChange={e => setFormData({ ...formData, vin: e.target.value })}
+          />
+          <Input
+            label="Make & model*"
+            required
+            value={formData.makeModel || ''}
+            onChange={e => setFormData({ ...formData, makeModel: e.target.value })}
+          />
+          <Input
+            label="Model year*"
+            required
+            type="number"
+            value={formData.year ?? ''}
+            onChange={e => setFormData({ ...formData, year: Number(e.target.value) })}
+          />
+          <Input
+            label="License plate"
+            value={formData.licensePlate || ''}
+            onChange={e => setFormData({ ...formData, licensePlate: e.target.value })}
+          />
+          <Input
+            label="Inspection due date*"
+            required
+            type="date"
+            value={formData.inspectionDueDate || ''}
+            onChange={e => setFormData({ ...formData, inspectionDueDate: e.target.value })}
+          />
+          <Select
+            label="Status*"
+            required
+            value={formData.status || 'ACTIVE'}
+            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+            options={[
+              { value: 'ACTIVE', label: 'Active' },
+              { value: 'MAINTENANCE', label: 'Maintenance' },
+              { value: 'OUT_OF_SERVICE', label: 'Out of service' },
+            ]}
+          />
+          {formData.type === 'TRUCK' && (
+            <div className="md:col-span-2">
+              <Select
+                label="Assigned driver"
+                value={formData.assignedDriverId || ''}
+                onChange={e => setFormData({ ...formData, assignedDriverId: e.target.value || undefined })}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...drivers.map(d => ({ value: d.id, label: d.name })),
+                ]}
+              />
             </div>
-
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Equipment Type*</label>
-                  <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.type || 'TRUCK'} onChange={e => setFormData({...formData, type: e.target.value as any})}>
-                    <option value="TRUCK">Truck (Power Unit)</option>
-                    <option value="TRAILER">Trailer</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Unit Number*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.unitNumber || ''} onChange={e => setFormData({...formData, unitNumber: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">VIN Number*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.vin || ''} onChange={e => setFormData({...formData, vin: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Make & Model*</label>
-                  <input required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.makeModel || ''} onChange={e => setFormData({...formData, makeModel: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Model Year*</label>
-                  <input required type="number" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.year || ''} onChange={e => setFormData({...formData, year: Number(e.target.value)})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">License Plate</label>
-                  <input className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.licensePlate || ''} onChange={e => setFormData({...formData, licensePlate: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Inspection Due Date*</label>
-                  <input required type="date" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.inspectionDueDate || ''} onChange={e => setFormData({...formData, inspectionDueDate: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Status*</label>
-                  <select required className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.status || 'ACTIVE'} onChange={e => setFormData({...formData, status: e.target.value as any})}>
-                    <option value="ACTIVE">Active</option>
-                    <option value="MAINTENANCE">Maintenance</option>
-                    <option value="OUT_OF_SERVICE">Out of Service</option>
-                  </select>
-                </div>
-                {formData.type === 'TRUCK' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">Assigned Driver</label>
-                    <select className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={formData.assignedDriverId || ''} onChange={e => setFormData({...formData, assignedDriverId: e.target.value || undefined})}>
-                      <option value="">Unassigned</option>
-                      {drivers.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button type="button" className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition" onClick={handleCloseModal}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : 'Save Equipment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
+        </form>
+      </Modal>
 
       {deleteItem && (
         <ConfirmModal
           isOpen={!!deleteItem}
-          title="Delete Equipment"
+          title="Delete equipment"
           message={`Are you sure you want to delete ${deleteItem.unitNumber}?`}
           isDanger={true}
           onConfirm={handleDelete}
