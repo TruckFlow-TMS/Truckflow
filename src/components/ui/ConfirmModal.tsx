@@ -21,6 +21,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     onClose={onCancel}
     title={title}
     size="sm"
+    busy={isLoading}
     footer={
       <>
         <Button variant="secondary" onClick={onCancel} disabled={isLoading}>Cancel</Button>

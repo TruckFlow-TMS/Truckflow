@@ -35,8 +35,8 @@ export function DataTable<T>({
       {rows.length === 0 ? (
         empty ?? <EmptyState title="Nothing to show" sub="Try clearing your filters." />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="max-h-[70vh] overflow-auto">
+          <table className="w-full border-collapse table-fixed">
             <thead>
               <tr>
                 {columns.map((c) => (
@@ -44,8 +44,8 @@ export function DataTable<T>({
                     key={c.key}
                     style={{ width: c.width }}
                     className={cn(
-                      'text-[11.5px] font-semibold text-fg-2 px-3.5 py-2.5 bg-surface-2',
-                      'border-b border-bd whitespace-nowrap tracking-wide',
+                      'sticky top-0 z-10 text-[11.5px] font-semibold text-fg-2 px-3.5 py-2.5 bg-surface-2',
+                      'border-b border-bd whitespace-nowrap tracking-wide truncate',
                       c.align === 'right' ? 'text-right' : 'text-left',
                     )}
                   >
@@ -59,16 +59,24 @@ export function DataTable<T>({
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  onKeyDown={onRowClick ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onRowClick(row);
+                    }
+                  } : undefined}
                   className={cn(
                     'border-b border-bd last:border-b-0 transition-colors',
-                    onRowClick && 'cursor-pointer hover:bg-surface-2',
+                    onRowClick && 'cursor-pointer hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:-outline-offset-2',
                   )}
                 >
                   {columns.map((c) => (
                     <td
                       key={c.key}
                       className={cn(
-                        'px-3.5 h-[50px] text-[13.5px] text-fg align-middle',
+                        'px-3.5 h-[50px] text-[13.5px] text-fg align-middle truncate',
                         c.align === 'right' && 'text-right font-semibold tnum',
                       )}
                     >

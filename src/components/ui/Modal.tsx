@@ -10,6 +10,8 @@ export interface ModalProps {
   subtitle?: string;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  /** When true, backdrop click / Escape / header close button will not dismiss the modal. */
+  busy?: boolean;
   children: React.ReactNode;
 }
 
@@ -20,12 +22,12 @@ const SIZES = {
 };
 
 export const Modal: React.FC<ModalProps> = ({
-  isOpen, onClose, title, subtitle, footer, size = 'md', children,
+  isOpen, onClose, title, subtitle, footer, size = 'md', busy = false, children,
 }) => {
   // Esc closes; body does not scroll behind the modal.
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy) onClose(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -33,14 +35,14 @@ export const Modal: React.FC<ModalProps> = ({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, busy]);
 
   if (!isOpen) return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={busy ? undefined : onClose}
     >
       <div
         role="dialog"
@@ -60,8 +62,9 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            disabled={busy}
             aria-label="Close"
-            className="p-1.5 -m-1 rounded-ctl text-fg-3 hover:text-fg hover:bg-surface-2 transition-colors"
+            className="p-1.5 -m-1 rounded-ctl text-fg-3 hover:text-fg hover:bg-surface-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-3"
           >
             <X size={16} />
           </button>
