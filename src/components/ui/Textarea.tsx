@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import { cn } from '../../lib/cn';
-import { FIELD_CLASS, FieldShell } from './Input';
+import { FIELD_CLASS, fieldMsgId, FieldShell } from './Input';
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -19,6 +19,8 @@ export const Textarea: React.FC<TextareaProps> = ({
         {...rest}
         id={fieldId}
         rows={rows}
+        aria-describedby={(hint || error) ? fieldMsgId(fieldId) : undefined}
+        aria-invalid={error ? true : undefined}
         className={cn(FIELD_CLASS, 'py-2 resize-y', error && 'border-danger', className)}
       />
     </FieldShell>

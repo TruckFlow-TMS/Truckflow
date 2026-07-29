@@ -27,6 +27,7 @@
   --accent-2: 27 79 191;
   --accent-weak: 231 239 254;
   --on-accent: 255 255 255;
+  --on-danger: 255 255 255;
 
   /* semantic */
   --pos: 11 122 80;      --pos-bg: 220 245 233;
@@ -67,6 +68,7 @@
   --accent-2: 123 165 250;
   --accent-weak: 28 42 74;
   --on-accent: 11 18 32;
+  --on-danger: 11 18 32;
 
   --pos: 61 214 140;     --pos-bg: 13 49 38;
   --warn: 245 194 66;    --warn-bg: 52 40 16;

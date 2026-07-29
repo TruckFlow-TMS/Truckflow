@@ -1,7 +1,7 @@
 import React, { useId } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { FIELD_CLASS, FieldShell } from './Input';
+import { FIELD_CLASS, fieldMsgId, FieldShell } from './Input';
 
 export interface SelectOption {
   value: string;
@@ -26,6 +26,8 @@ export const Select: React.FC<SelectProps> = ({
         <select
           {...rest}
           id={fieldId}
+          aria-describedby={(hint || error) ? fieldMsgId(fieldId) : undefined}
+          aria-invalid={error ? true : undefined}
           className={cn(FIELD_CLASS, 'h-9 appearance-none cursor-pointer pr-8', error && 'border-danger', className)}
         >
           {options.map((o) => (

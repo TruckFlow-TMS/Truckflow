@@ -22,6 +22,7 @@ export default {
         'accent-2':    token('accent-2'),
         'accent-weak': token('accent-weak'),
         'on-accent':   token('on-accent'),
+        'on-danger':   token('on-danger'),
         pos:           token('pos'),
         'pos-bg':      token('pos-bg'),
         warn:          token('warn'),

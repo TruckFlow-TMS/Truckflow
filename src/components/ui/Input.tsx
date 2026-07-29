@@ -16,6 +16,14 @@ export interface FieldShellProps {
   children: React.ReactNode;
 }
 
+/**
+ * Id of the error/hint message paragraph for a given field id.
+ * Shared by Input, Select and Textarea so they all wire up
+ * aria-describedby the same way instead of duplicating the logic.
+ */
+export const fieldMsgId = (htmlFor?: string): string | undefined =>
+  htmlFor ? `${htmlFor}-msg` : undefined;
+
 /** Label above, error/hint below — the layout every field shares. */
 export const FieldShell: React.FC<FieldShellProps> = ({ label, hint, error, htmlFor, children }) => (
   <div className="w-full">
@@ -26,9 +34,9 @@ export const FieldShell: React.FC<FieldShellProps> = ({ label, hint, error, html
     )}
     {children}
     {error ? (
-      <p className="text-[11px] text-danger mt-1">{error}</p>
+      <p id={fieldMsgId(htmlFor)} className="text-[11px] text-danger mt-1">{error}</p>
     ) : hint ? (
-      <p className="text-[11px] text-fg-3 mt-1">{hint}</p>
+      <p id={fieldMsgId(htmlFor)} className="text-[11px] text-fg-3 mt-1">{hint}</p>
     ) : null}
   </div>
 );
@@ -47,6 +55,8 @@ export const Input: React.FC<InputProps> = ({ label, hint, error, className, id,
       <input
         {...rest}
         id={fieldId}
+        aria-describedby={(hint || error) ? fieldMsgId(fieldId) : undefined}
+        aria-invalid={error ? true : undefined}
         className={cn(FIELD_CLASS, 'h-9', error && 'border-danger', className)}
       />
     </FieldShell>

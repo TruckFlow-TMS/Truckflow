@@ -38,6 +38,8 @@ export function statusTone(status: string): Tone {
     case 'OVERDUE': return 'danger';
     case 'VOID': return 'neutral';
     case 'SUBMITTED_TO_FACTORING': return 'violet';
+    case 'ADVANCED': return 'pos';
+    case 'DISPUTED': return 'danger';
     default: return 'neutral';
   }
 }

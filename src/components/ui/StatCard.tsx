@@ -55,22 +55,22 @@ export const StatCard: React.FC<StatCardProps> = ({
         </svg>
       )}
 
-      <div className={cn('relative z-10 text-[11.5px] font-medium', hero ? 'text-white/70' : 'text-fg-2')}>
+      <div className={cn('relative z-10 text-[11.5px] font-medium', hero ? 'text-on-accent/70' : 'text-fg-2')}>
         {label}
       </div>
-      <div className={cn('relative z-10 text-[22px] font-semibold mt-1 tnum leading-tight tracking-tight', hero ? 'text-white' : 'text-fg')}>
+      <div className={cn('relative z-10 text-[22px] font-semibold mt-1 tnum leading-tight tracking-tight', hero ? 'text-on-accent' : 'text-fg')}>
         {value}
       </div>
       {sub && (
-        <div className={cn('relative z-10 text-[10.5px] mt-1 tnum', hero ? 'text-white/70' : 'text-fg-3')}>
+        <div className={cn('relative z-10 text-[10.5px] mt-1 tnum', hero ? 'text-on-accent/70' : 'text-fg-3')}>
           {sub}
         </div>
       )}
 
       {hero && d && (
-        <svg viewBox="0 0 200 30" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-[30px] opacity-50 z-0">
-          <path d={`${d} L200 30 L0 30 Z`} fill="rgba(255,255,255,.20)" />
-          <path d={d} fill="none" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
+        <svg viewBox="0 0 200 30" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-[30px] opacity-50 z-0 text-on-accent">
+          <path d={`${d} L200 30 L0 30 Z`} fill="currentColor" fillOpacity={0.2} />
+          <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
         </svg>
       )}
     </div>
