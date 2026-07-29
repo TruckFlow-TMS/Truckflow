@@ -7,19 +7,15 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { EditLoadModal } from './EditLoadModal';
 import { LoadDetailModal } from './LoadDetailModal';
 import { CreateLoadModal } from './CreateLoadModal';
-
-import { 
-  Package, 
-  Search, 
-  Filter, 
-  Plus, 
-  FileText, 
-  Eye, 
-  Edit2, 
-  Trash2, 
-  ChevronLeft, 
-  ChevronRight,
-  ArrowRight
+import {
+  Button, Input, Select, PageHeader, DataTable, Badge, Avatar,
+  StatCard, EmptyState, statusTone, humanizeStatus,
+} from '../ui';
+import type { Column } from '../ui';
+import { cn } from '../../lib/cn';
+import {
+  Package, Search, Plus, FileText, Eye, Edit2, Trash2,
+  ChevronLeft, ChevronRight, ArrowRight,
 } from 'lucide-react';
 
 interface LoadsListViewProps {
@@ -87,6 +83,150 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     return filteredLoads.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredLoads, currentPage]);
 
+  // KPI figures derived from the same filtered set the table shows.
+  const kpis = useMemo(() => {
+    const active = loads.filter((l) =>
+      ['DISPATCHED', 'IN_TRANSIT', 'OPEN'].includes(l.status)).length;
+    const gross = loads.reduce((sum, l) => sum + l.rateMinor, 0) / 100;
+    const unassigned = loads.filter((l) => !l.driverName).length;
+    const delivered = loads.filter((l) =>
+      ['DELIVERED', 'DELIVERED_POD', 'INVOICED', 'PAID'].includes(l.status)).length;
+    const onTime = loads.length ? Math.round((delivered / loads.length) * 1000) / 10 : 0;
+    return { active, gross, unassigned, onTime };
+  }, [loads]);
+
+  const money = (minor: number) =>
+    `$${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+  const columns: Column<Load>[] = [
+    {
+      key: 'load',
+      header: 'Load',
+      width: '16%',
+      render: (ld) => (
+        <>
+          <span className="font-semibold text-accent tnum">{ld.loadNumber}</span>
+          <span className="block text-[11px] text-fg-3 mt-px tnum">
+            {ld.loadedMiles} mi
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      width: '20%',
+      render: (ld) => (
+        <>
+          <span className="font-medium">{ld.brokerName}</span>
+          <span className="block text-[11px] text-fg-3 mt-px">
+            Ref {ld.brokerReference || '—'}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'lane',
+      header: 'Lane',
+      width: '21%',
+      render: (ld) => (
+        <>
+          <span className="font-medium inline-flex items-center gap-1.5">
+            {ld.originCity}, {ld.originState}
+            <ArrowRight size={12} className="text-fg-3 shrink-0" />
+            {ld.destCity}, {ld.destState}
+          </span>
+          <span className="block text-[11px] text-fg-3 mt-px">
+            Pickup {ld.pickupDate || 'TBD'}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: 'driver',
+      header: 'Driver',
+      width: '16%',
+      render: (ld) =>
+        ld.driverName ? (
+          <span className="inline-flex items-center gap-2">
+            <Avatar name={ld.driverName} />
+            {ld.driverName}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2 text-fg-3">
+            <span className="w-[22px] h-[22px] rounded-full border border-dashed border-bd-strong shrink-0" />
+            Unassigned
+          </span>
+        ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '12%',
+      render: (ld) => (
+        <Badge tone={statusTone(ld.status)}>{humanizeStatus(ld.status)}</Badge>
+      ),
+    },
+    {
+      key: 'rate',
+      header: 'Rate',
+      width: '10%',
+      align: 'right',
+      render: (ld) => money(ld.rateMinor),
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: '5%',
+      align: 'right',
+      render: (ld) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); setSelectedDetailLoad(ld); }}
+            title="View details"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+          >
+            <Eye size={15} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditingLoad(ld); }}
+            title="Edit load"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          {ld.status === 'DELIVERED' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(ld); }}
+              title="Generate invoice"
+              className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
+            >
+              <FileText size={15} />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setDeletingLoad(ld); }}
+            title="Delete load"
+            className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const STATUS_OPTIONS = [
+    { value: 'ALL', label: 'All statuses' },
+    { value: 'OPEN', label: 'Open' },
+    { value: 'DISPATCHED', label: 'Dispatched' },
+    { value: 'IN_TRANSIT', label: 'In transit' },
+    { value: 'DELIVERED', label: 'Delivered' },
+    { value: 'INVOICED', label: 'Invoiced' },
+    { value: 'PAID', label: 'Paid' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+
   // Action Handlers
   const handleConfirmDelete = async () => {
     if (!deletingLoad || !currentUser) return;
@@ -115,238 +255,114 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <Package className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Dispatches & Loads Roster</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Manage all freight shipments, rate confirmations, driver assignments, and delivery statuses.
-          </p>
-        </div>
+    <div className="space-y-3.5">
+      <PageHeader
+        title="Loads"
+        subtitle={`${filteredLoads.length} of ${loads.length} loads`}
+        actions={
+          <>
+            <Button variant="secondary">Export</Button>
+            <Button icon={<Plus size={13} />} onClick={() => setShowCreateModal(true)}>
+              New load
+            </Button>
+          </>
+        }
+      />
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5 self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>+ Book New Load</span>
-        </button>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          variant="hero"
+          label="Gross revenue"
+          value={`$${kpis.gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+          sub={`Across ${loads.length} loads`}
+          spark={[4, 6, 5, 9, 7, 12, 10, 15]}
+        />
+        <StatCard label="Active loads" value={String(kpis.active)} sub="Open, dispatched or in transit" />
+        <StatCard variant="ring" ringPct={kpis.onTime} label="Completed" value={`${kpis.onTime}%`} sub="Delivered or beyond" />
+        <StatCard
+          label="Unassigned"
+          value={String(kpis.unassigned)}
+          sub={kpis.unassigned > 0 ? <span className="text-warn font-semibold">Needs a driver</span> : 'All covered'}
+        />
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Search Input */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Search size={15} />
+      <DataTable
+        columns={columns}
+        rows={paginatedLoads}
+        rowKey={(ld) => ld.id}
+        empty={
+          <EmptyState
+            icon={<Package size={30} strokeWidth={1.5} />}
+            title="No loads match these filters"
+            sub="Try a different status, date range or search term."
+            action={
+              <Button icon={<Plus size={13} />} onClick={() => setShowCreateModal(true)}>
+                Book a load
+              </Button>
+            }
+          />
+        }
+        toolbar={
+          <>
+            <div className="relative w-full sm:w-[240px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                placeholder="Search load, broker, driver…"
+                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+              />
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Load #, Customer, Driver..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
-            />
-          </div>
 
-          {/* Status Dropdown */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Filter size={14} />
-            </div>
-            <select
+            <Select
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
-            >
-              <option value="ALL">All Load Statuses</option>
-              <option value="OPEN">OPEN (Unassigned)</option>
-              <option value="DISPATCHED">DISPATCHED</option>
-              <option value="IN_TRANSIT">IN TRANSIT</option>
-              <option value="DELIVERED">DELIVERED</option>
-              <option value="INVOICED">INVOICED</option>
-              <option value="PAID">PAID</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
-          </div>
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              options={STATUS_OPTIONS}
+              className="h-8 w-auto"
+            />
 
-          {/* Start Date */}
-          <div>
-            <input
+            <Input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono transition"
+              className="h-8 w-auto tnum"
             />
-          </div>
-
-          {/* End Date */}
-          <div>
-            <input
+            <Input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono transition"
+              className="h-8 w-auto tnum"
             />
-          </div>
-        </div>
-      </div>
 
-      {/* Main Loads Data Table */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                <th className="p-4">Load #</th>
-                <th className="p-4">Route (Origin → Dest)</th>
-                <th className="p-4">Broker / Customer</th>
-                <th className="p-4">Driver & Truck</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Rate ($)</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
-              {paginatedLoads.length > 0 ? (
-                paginatedLoads.map((ld) => (
-                  <tr key={ld.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                    <td className="p-4">
-                      <button
-                        onClick={() => setSelectedDetailLoad(ld)}
-                        className="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                      >
-                        {ld.loadNumber}
-                      </button>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">Ref: {ld.brokerReference || '-'}</div>
-                    </td>
+            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
+              Showing {paginatedLoads.length} of {filteredLoads.length}
+            </span>
+          </>
+        }
+      />
 
-                    <td className="p-4">
-                      <div className="font-semibold text-slate-900 dark:text-slate-200 flex items-center space-x-1.5">
-                        <span>{ld.originCity}, {ld.originState}</span>
-                        <ArrowRight size={12} className="text-slate-400 dark:text-slate-500" />
-                        <span>{ld.destCity}, {ld.destState}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                        Pickup: {ld.pickupDate || 'TBD'} • {ld.loadedMiles} miles
-                      </div>
-                    </td>
-
-                    <td className="p-4 text-slate-800 dark:text-slate-200 font-medium">
-                      {ld.brokerName}
-                    </td>
-
-                    <td className="p-4">
-                      <div className="text-slate-900 dark:text-slate-200 font-bold">
-                        {ld.driverName || <span className="text-amber-600 dark:text-amber-400 font-normal italic">Unassigned</span>}
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-                        Truck: {ld.truckNumber || '-'} • Trailer: {ld.trailerNumber || '-'}
-                      </div>
-                    </td>
-
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
-                        ld.status === 'DELIVERED' || ld.status === 'PAID'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : ld.status === 'IN_TRANSIT'
-                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                          : ld.status === 'DISPATCHED'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                      }`}>
-                        {ld.status}
-                      </span>
-                    </td>
-
-                    <td className="p-4 font-mono font-extrabold text-slate-900 dark:text-white text-sm">
-                      ${(ld.rateMinor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-
-                    <td className="p-4">
-                      <div className="flex items-center justify-end space-x-1.5">
-                        <button
-                          onClick={() => setSelectedDetailLoad(ld)}
-                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                          title="View Details"
-                        >
-                          <Eye size={15} />
-                        </button>
-
-                        <button
-                          onClick={() => setEditingLoad(ld)}
-                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                          title="Edit Load"
-                        >
-                          <Edit2 size={15} />
-                        </button>
-
-                        {ld.status === 'DELIVERED' && (
-                          <button
-                            onClick={() => handleGenerateInvoice(ld)}
-                            className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                            title="Generate Invoice"
-                          >
-                            <FileText size={15} />
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => setDeletingLoad(ld)}
-                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                          title="Delete Load"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-500 italic text-xs">
-                    No dispatches or loads found matching your filter criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>
-            Showing Page <strong className="text-slate-900 dark:text-white">{currentPage}</strong> of <strong className="text-slate-900 dark:text-white">{totalPages}</strong> ({filteredLoads.length} Total Loads)
+        <div className="flex items-center justify-between text-[12px] text-fg-2">
+          <span className="tnum">
+            Page {currentPage} of {totalPages}
           </span>
-
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary" size="sm"
+              icon={<ChevronLeft size={13} />}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition flex items-center space-x-1"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              <ChevronLeft size={14} />
-              <span>Previous</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              Previous
+            </Button>
+            <Button
+              variant="secondary" size="sm"
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-300 transition flex items-center space-x-1"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
-              <span>Next</span>
-              <ChevronRight size={14} />
-            </button>
+              Next <ChevronRight size={13} />
+            </Button>
           </div>
         </div>
       )}

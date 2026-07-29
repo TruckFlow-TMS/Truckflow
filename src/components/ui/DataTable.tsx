@@ -76,7 +76,18 @@ export function DataTable<T>({
                     <td
                       key={c.key}
                       className={cn(
-                        'px-3.5 h-[50px] text-[13.5px] text-fg align-middle truncate',
+                        // Cells can render multi-line content: a primary value with a
+                        // `block` sub-line beneath it (e.g. load number + miles). Tailwind's
+                        // `truncate` bundles `white-space: nowrap` in with the overflow
+                        // clipping, and nowrap is inherited into the sub-line's text — on
+                        // long values that forces the second line to run wide and clip
+                        // (or renders with no ellipsis of its own, since `text-overflow`
+                        // only ever applies to the <td>'s own line box, not nested block
+                        // children). Clipping vertical/horizontal overflow on the cell
+                        // without forcing nowrap keeps two-line cells intact; row height is
+                        // fixed (h-[50px]) so runaway content is still clipped, just without
+                        // forcing a single line.
+                        'px-3.5 h-[50px] text-[13.5px] text-fg align-middle overflow-hidden',
                         c.align === 'right' && 'text-right font-semibold tnum',
                       )}
                     >
