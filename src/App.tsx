@@ -91,7 +91,7 @@ export const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex overflow-hidden selection:bg-blue-600 selection:text-white transition-colors duration-200">
+    <div className="h-screen bg-canvas text-fg flex overflow-hidden selection:bg-accent selection:text-on-accent">
       {/* Left Navigation Sidebar */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} loadCount={loads.length} />
 
@@ -101,7 +101,7 @@ export const AppContent: React.FC = () => {
         <Header onOpenCreateLoad={() => setShowCreateLoadModal(true)} />
 
         {/* Main View Area */}
-        <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-5 overflow-y-auto w-full">
           {activeTab === 'dashboard' && (
             <DashboardView
               loads={loads}
