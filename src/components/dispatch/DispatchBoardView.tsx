@@ -3,10 +3,13 @@ import { Load, LoadStatus, Driver, Equipment } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import {
+  Button, Card, Badge, Avatar, PageHeader, EmptyState,
+  statusTone, humanizeStatus,
+} from '../ui';
+import {
   Kanban,
   Calendar,
   AlertTriangle,
-  UserCheck,
   Truck,
   ArrowRight,
   Plus,
@@ -14,7 +17,7 @@ import {
   XCircle,
   FileCheck,
   FileText,
-  DollarSign
+  DollarSign,
 } from 'lucide-react';
 
 interface DispatchBoardViewProps {
@@ -26,6 +29,8 @@ interface DispatchBoardViewProps {
   onOpenCreateLoad: () => void;
   onReload: () => void;
 }
+
+const stageAction = 'inline-flex items-center gap-1 px-2 py-1 rounded-ctl text-[10px] font-semibold bg-accent-grad text-on-accent hover:opacity-90 transition';
 
 export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   loads,
@@ -41,14 +46,14 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 7-Stage Lifecycle Columns
-  const columns: { status: LoadStatus; title: string; color: string }[] = [
-    { status: 'OPEN', title: '1. Planned Load', color: 'border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10' },
-    { status: 'DISPATCHED', title: '2. Trip (Dispatched)', color: 'border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10' },
-    { status: 'IN_TRANSIT', title: '3. In Transit', color: 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10' },
-    { status: 'DELIVERED', title: '4. Delivered', color: 'border-indigo-500/40 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10' },
-    { status: 'DELIVERED_POD', title: '5. Delivered with (BOL)', color: 'border-teal-500/40 text-teal-600 dark:text-teal-400 bg-teal-500/10' },
-    { status: 'INVOICED', title: '6. Invoice', color: 'border-cyan-500/40 text-cyan-600 dark:text-cyan-400 bg-cyan-500/10' },
-    { status: 'PAID', title: '7. Paid', color: 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+  const columns: { status: LoadStatus; title: string }[] = [
+    { status: 'OPEN', title: '1. Planned load' },
+    { status: 'DISPATCHED', title: '2. Trip (dispatched)' },
+    { status: 'IN_TRANSIT', title: '3. In transit' },
+    { status: 'DELIVERED', title: '4. Delivered' },
+    { status: 'DELIVERED_POD', title: '5. Delivered with (BOL)' },
+    { status: 'INVOICED', title: '6. Invoice' },
+    { status: 'PAID', title: '7. Paid' },
   ];
 
   const handleAdvanceStatus = async (load: Load, targetStatus: LoadStatus) => {
@@ -67,66 +72,53 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3.5">
       {/* Board Header & View Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <Kanban className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Interactive Dispatch Board (7 Stages)</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Planned Load → Trip (Dispatched) → In Transit → Delivered → Delivered with (BOL) → Invoice → Paid
-          </p>
-        </div>
+      <PageHeader
+        title="Interactive dispatch board (7 stages)"
+        subtitle="Planned load → Trip (dispatched) → In transit → Delivered → Delivered with (BOL) → Invoice → Paid"
+        actions={
+          <>
+            <div className="inline-flex items-center gap-1 bg-surface-2 border border-bd rounded-ctl p-1">
+              <Button
+                size="sm"
+                variant={viewMode === 'kanban' ? 'primary' : 'ghost'}
+                icon={<Kanban size={13} />}
+                onClick={() => setViewMode('kanban')}
+              >
+                Kanban board
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'timeline' ? 'primary' : 'ghost'}
+                icon={<Calendar size={13} />}
+                onClick={() => setViewMode('timeline')}
+              >
+                Driver timeline
+              </Button>
+            </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 flex items-center space-x-1 text-xs">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 rounded-lg transition font-medium flex items-center space-x-1.5 ${
-                viewMode === 'kanban'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Kanban className="w-3.5 h-3.5" />
-              <span>Kanban Board</span>
-            </button>
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={`px-3 py-1.5 rounded-lg transition font-medium flex items-center space-x-1.5 ${
-                viewMode === 'timeline'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Driver Timeline</span>
-            </button>
-          </div>
-
-          <button
-            onClick={onOpenCreateLoad}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Book Load</span>
-          </button>
-        </div>
-      </div>
+            <Button icon={<Plus size={13} />} onClick={onOpenCreateLoad}>
+              Book load
+            </Button>
+          </>
+        }
+      />
 
       {/* Error Alert Box */}
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-start justify-between shadow-lg">
-          <div className="flex items-start space-x-3">
-            <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-rose-900 dark:text-rose-100">Lifecycle Guard Blocked Transition</p>
-              <p className="text-rose-700 dark:text-rose-300 mt-0.5">{errorMessage}</p>
+        <div className="p-3.5 rounded-card bg-danger-bg border border-bd flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <XCircle size={18} className="text-danger shrink-0 mt-0.5" />
+            <div className="text-[12.5px]">
+              <p className="font-semibold text-fg">Lifecycle guard blocked transition</p>
+              <p className="text-fg-2 mt-0.5">{errorMessage}</p>
             </div>
           </div>
-          <button onClick={() => setErrorMessage(null)} className="text-rose-600 dark:text-rose-400 hover:text-rose-900 dark:hover:text-rose-200">
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-danger hover:opacity-70 shrink-0"
+          >
             ✕
           </button>
         </div>
@@ -145,129 +137,120 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
               });
 
               return (
-                <div key={col.status} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 flex flex-col min-h-[550px]">
-                  <div className={`p-2.5 rounded-xl border flex items-center justify-between font-bold text-[11px] mb-3 ${col.color}`}>
-                    <span className="truncate pr-1">{col.title}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-white dark:bg-slate-950/60 text-slate-800 dark:text-slate-200 font-mono text-[10px]">
-                      {colLoads.length}
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 flex-1 overflow-y-auto pr-0.5">
+                <Card
+                  key={col.status}
+                  padded={false}
+                  className="flex flex-col min-h-[550px]"
+                  header={
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11.5px] font-semibold text-fg truncate pr-1">{col.title}</span>
+                      <span className="text-[10.5px] font-semibold tnum text-fg-3 bg-surface-2 border border-bd rounded-full px-2 py-0.5 shrink-0">
+                        {colLoads.length}
+                      </span>
+                    </div>
+                  }
+                >
+                  <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto">
                     {colLoads.map((ld) => (
                       <div
                         key={ld.id}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 rounded-xl p-3 shadow-sm dark:shadow-lg transition space-y-2 group"
+                        className="bg-surface-2 border border-bd hover:border-accent/50 rounded-ctl p-3 transition space-y-2 group"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span
                             onClick={() => onSelectLoad(ld)}
-                            className="font-mono font-extrabold text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                            className="font-semibold text-[12px] text-accent tnum hover:underline cursor-pointer"
                           >
                             {ld.loadNumber}
                           </span>
-                          <span className="text-[11px] font-mono text-slate-900 dark:text-slate-300 font-bold">
+                          <span className="text-[11px] font-semibold text-fg tnum">
                             ${(ld.rateMinor / 100).toLocaleString('en-US')}
                           </span>
                         </div>
 
-                        <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">{ld.brokerName}</p>
+                        <p className="text-[11.5px] font-medium text-fg-2 truncate">{ld.brokerName}</p>
 
-                        <div className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/60 p-2 rounded-lg border border-slate-200 dark:border-slate-800/80">
-                          <div className="font-semibold text-slate-900 dark:text-slate-300 truncate">
+                        <div className="text-[10.5px] text-fg-3 bg-surface border border-bd rounded-ctl px-2 py-1.5">
+                          <div className="font-medium text-fg-2 truncate">
                             {ld.stops[0]?.city || ld.originCity}, {ld.stops[0]?.state || ld.originState} → {ld.stops[ld.stops.length - 1]?.city || ld.destCity}, {ld.stops[ld.stops.length - 1]?.state || ld.destState}
                           </div>
-                          <div className="text-[9px] text-slate-500 mt-0.5 font-mono">
+                          <div className="tnum mt-0.5">
                             {ld.loadedMiles} mi ({ld.deadheadMiles} DH)
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] pt-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge tone={statusTone(ld.status)}>{humanizeStatus(ld.status)}</Badge>
                           {ld.driverName ? (
-                            <span className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-400 font-medium truncate">
-                              <UserCheck className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{ld.driverName}</span>
+                            <span className="inline-flex items-center gap-1.5 min-w-0">
+                              <Avatar name={ld.driverName} size={18} />
+                              <span className="text-[10.5px] font-medium text-fg-2 truncate">{ld.driverName}</span>
                             </span>
                           ) : (
                             <button
                               onClick={() => onOpenAssignModal(ld)}
-                              className="flex items-center space-x-1 text-amber-600 dark:text-amber-400 hover:underline font-bold bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40"
+                              className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-warn bg-warn-bg px-1.5 py-0.5 rounded-ctl border border-bd"
                             >
-                              <AlertTriangle className="w-3 h-3" />
+                              <AlertTriangle size={11} />
                               <span>Assign</span>
                             </button>
                           )}
                         </div>
 
-                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px]">
-                          <button onClick={() => onSelectLoad(ld)} className="text-slate-400 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-[9px]">
+                        <div className="pt-2 border-t border-bd flex items-center justify-between">
+                          <button
+                            onClick={() => onSelectLoad(ld)}
+                            className="text-[10px] text-fg-3 hover:text-fg transition-colors"
+                          >
                             Details
                           </button>
 
                           {/* Stage Transition Buttons */}
                           {ld.status === 'OPEN' && (
-                            <button
-                              onClick={() => onOpenAssignModal(ld)}
-                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => onOpenAssignModal(ld)} className={stageAction}>
                               <span>Dispatch</span>
-                              <ArrowRight className="w-3 h-3" />
+                              <ArrowRight size={11} />
                             </button>
                           )}
 
                           {ld.status === 'DISPATCHED' && (
-                            <button
-                              onClick={() => handleAdvanceStatus(ld, 'IN_TRANSIT')}
-                              className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => handleAdvanceStatus(ld, 'IN_TRANSIT')} className={stageAction}>
                               <span>Transit</span>
-                              <ArrowRight className="w-3 h-3" />
+                              <ArrowRight size={11} />
                             </button>
                           )}
 
                           {['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(ld.status) && (
-                            <button
-                              onClick={() => handleAdvanceStatus(ld, 'DELIVERED')}
-                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => handleAdvanceStatus(ld, 'DELIVERED')} className={stageAction}>
                               <span>Delivered</span>
-                              <CheckCircle2 className="w-3 h-3" />
+                              <CheckCircle2 size={11} />
                             </button>
                           )}
 
                           {ld.status === 'DELIVERED' && (
-                            <button
-                              onClick={() => handleAdvanceStatus(ld, 'DELIVERED_POD')}
-                              className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => handleAdvanceStatus(ld, 'DELIVERED_POD')} className={stageAction}>
                               <span>+ BOL</span>
-                              <FileCheck className="w-3 h-3" />
+                              <FileCheck size={11} />
                             </button>
                           )}
 
                           {ld.status === 'DELIVERED_POD' && (
-                            <button
-                              onClick={() => handleAdvanceStatus(ld, 'INVOICED')}
-                              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => handleAdvanceStatus(ld, 'INVOICED')} className={stageAction}>
                               <span>Invoice</span>
-                              <FileText className="w-3 h-3" />
+                              <FileText size={11} />
                             </button>
                           )}
 
                           {ld.status === 'INVOICED' && (
-                            <button
-                              onClick={() => handleAdvanceStatus(ld, 'PAID')}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-lg transition flex items-center space-x-1 text-[10px]"
-                            >
+                            <button onClick={() => handleAdvanceStatus(ld, 'PAID')} className={stageAction}>
                               <span>Paid</span>
-                              <DollarSign className="w-3 h-3" />
+                              <DollarSign size={11} />
                             </button>
                           )}
 
                           {ld.status === 'PAID' && (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[9px] flex items-center space-x-0.5">
-                              <CheckCircle2 className="w-3 h-3" />
+                            <span className="text-pos font-semibold text-[10px] inline-flex items-center gap-1">
+                              <CheckCircle2 size={11} />
                               <span>Closed</span>
                             </span>
                           )}
@@ -276,12 +259,12 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                     ))}
 
                     {colLoads.length === 0 && (
-                      <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-[11px] italic border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                      <div className="p-3 text-center text-fg-3 text-[10.5px] italic border border-dashed border-bd rounded-ctl">
                         Empty
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -290,69 +273,72 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
 
       {/* View 2: Driver Timeline */}
       {viewMode === 'timeline' && (
-        <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-xl space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-            <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>Driver Roster & Equipment Schedule Timeline</span>
-          </h3>
-
-          <div className="space-y-4 text-xs">
+        <Card
+          header={
+            <h3 className="text-[13.5px] font-semibold text-fg inline-flex items-center gap-2">
+              <Truck size={15} className="text-accent" />
+              <span>Driver roster & equipment schedule timeline</span>
+            </h3>
+          }
+        >
+          <div className="space-y-3">
             {drivers.map((drv) => {
               const driverLoads = loads.filter((l) => l.driverId === drv.id);
 
               return (
-                <div key={drv.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-600/20 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center border border-blue-500/30">
-                        {drv.name.split(' ').map((n) => n[0]).join('')}
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-slate-900 dark:text-slate-100">{drv.name}</span>
-                          <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 px-2 py-0.5 rounded">
-                            {drv.employmentType}
-                          </span>
+                <div key={drv.id} className="p-3.5 rounded-ctl bg-surface-2 border border-bd space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar name={drv.name} size={32} />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-fg text-[12.5px] truncate">{drv.name}</span>
+                          <Badge tone="neutral">{drv.employmentType}</Badge>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          Truck: <span className="text-blue-600 dark:text-blue-400 font-mono font-semibold">{drv.assignedTruckNumber || 'None'}</span>
+                        <p className="text-[11px] text-fg-3 mt-0.5">
+                          Truck: <span className="text-accent font-semibold tnum">{drv.assignedTruckNumber || 'None'}</span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">Assigned Loads</span>
-                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">{driverLoads.length} Active</p>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10.5px] text-fg-3 font-semibold">Assigned loads</span>
+                      <p className="font-semibold text-[13px] text-fg tnum">{driverLoads.length} active</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2.5 border-t border-bd">
                     {driverLoads.map((l) => (
                       <div
                         key={l.id}
                         onClick={() => onSelectLoad(l)}
-                        className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 hover:border-blue-500/60 transition cursor-pointer flex items-center justify-between"
+                        className="p-2.5 rounded-ctl bg-surface border border-bd hover:border-accent/50 transition cursor-pointer flex items-center justify-between gap-2"
                       >
-                        <div>
-                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs">{l.loadNumber}</span>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-accent text-[11.5px] tnum">{l.loadNumber}</span>
+                          <p className="text-[10.5px] text-fg-3 truncate">
                             {l.stops[0]?.city || l.originCity} → {l.stops[l.stops.length - 1]?.city || l.destCity}
                           </p>
                         </div>
-                        <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-bold">
-                          {l.status}
-                        </span>
+                        <Badge tone={statusTone(l.status)}>{humanizeStatus(l.status)}</Badge>
                       </div>
                     ))}
                     {driverLoads.length === 0 && (
-                      <span className="text-slate-500 italic text-[11px]">No loads assigned.</span>
+                      <span className="text-fg-3 italic text-[11px]">No loads assigned.</span>
                     )}
                   </div>
                 </div>
               );
             })}
+
+            {drivers.length === 0 && (
+              <EmptyState
+                icon={<Truck size={28} strokeWidth={1.5} />}
+                title="No drivers on the roster"
+              />
+            )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
