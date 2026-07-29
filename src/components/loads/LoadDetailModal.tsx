@@ -2,13 +2,23 @@ import React, { useState } from 'react';
 import { Load } from '../../types/tms';
 import { mockStore } from '../../services/mockStore';
 import { useAuth } from '../../context/AuthContext';
-import { Package, ArrowRight, Upload, DollarSign, FileText, Activity, MapPin, Truck, X, CheckCircle } from 'lucide-react';
+import { Upload, CheckCircle } from 'lucide-react';
+import { Modal, Card, Badge, Button, Input, Select, statusTone, humanizeStatus } from '../ui';
+import { cn } from '../../lib/cn';
 
 interface LoadDetailModalProps {
   load: Load | null;
   onClose: () => void;
   onReload: () => void;
 }
+
+const TABS = [
+  { id: 'OVERVIEW', label: 'Overview' },
+  { id: 'STOPS', label: 'Stops & route' },
+  { id: 'DOCUMENTS', label: 'Documents & rate cons' },
+  { id: 'FINANCIALS', label: 'Financial breakdown' },
+  { id: 'ACTIVITY', label: 'Audit trail' },
+] as const;
 
 export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose, onReload }) => {
   const { currentUser } = useAuth();
@@ -53,195 +63,177 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-50 p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/60 shrink-0">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
-              <Package size={20} />
-            </div>
-            <div>
-              <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-extrabold text-white">Load {load.loadNumber}</h2>
-                <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
-                  load.status === 'DELIVERED' || load.status === 'PAID'
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : load.status === 'IN_TRANSIT' || load.status === 'DISPATCHED'
-                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700'
-                }`}>
-                  {load.status}
-                </span>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={`Load ${load.loadNumber}`}
+      subtitle={`${load.originCity}, ${load.originState} → ${load.destCity}, ${load.destState}`}
+      size="lg"
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <Badge tone={statusTone(load.status)}>{humanizeStatus(load.status)}</Badge>
+      </div>
+
+      <div className="flex gap-5 border-b border-bd mb-5 overflow-x-auto">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'py-2.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+              activeTab === tab.id ? 'border-accent text-accent' : 'border-transparent text-fg-3 hover:text-fg',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'OVERVIEW' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide mb-3">Broker & customer details</h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+                <div>
+                  <p className="text-[11px] text-fg-3">Broker</p>
+                  <p className="text-[13.5px] text-fg font-medium mt-0.5">{load.brokerName}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-fg-3">Broker ref #</p>
+                  <p className="text-[13.5px] text-accent font-medium mt-0.5 tnum">{load.brokerReference}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-fg-3">Gross rate</p>
+                  <p className="text-[13.5px] text-pos font-medium mt-0.5 tnum">${(load.rateMinor / 100).toFixed(2)}</p>
+                </div>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 flex items-center space-x-1.5 font-mono">
-                <span>{load.originCity}, {load.originState}</span>
-                <ArrowRight size={12} className="text-slate-500" />
-                <span>{load.destCity}, {load.destState}</span>
-              </p>
-            </div>
+            </Card>
+
+            <Card>
+              <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide mb-3">Driver & equipment assignment</h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+                <div>
+                  <p className="text-[11px] text-fg-3">Driver</p>
+                  <p className="text-[13.5px] text-fg font-medium mt-0.5">{load.driverName || 'Unassigned'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-fg-3">Truck unit #</p>
+                  <p className="text-[13.5px] text-fg font-medium mt-0.5 tnum">{load.truckNumber || 'Unassigned'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-fg-3">Trailer #</p>
+                  <p className="text-[13.5px] text-fg font-medium mt-0.5 tnum">{load.trailerNumber || 'Unassigned'}</p>
+                </div>
+              </div>
+            </Card>
           </div>
 
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition">
-            <X size={18} />
-          </button>
+          <Card className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-[13.5px] font-semibold text-fg">Status workflow advancement</h3>
+              <p className="text-[12px] text-fg-2 mt-0.5">
+                Current active status is <span className="font-semibold text-accent">{humanizeStatus(load.status)}</span>
+              </p>
+            </div>
+            {load.status !== 'PAID' && load.status !== 'CANCELLED' && (
+              <Button icon={<CheckCircle size={14} />} loading={isAdvancing} onClick={handleAdvanceStatus}>
+                {isAdvancing ? 'Updating…' : 'Advance next status'}
+              </Button>
+            )}
+          </Card>
+
+          {load.notes && (
+            <Card>
+              <h4 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide mb-1.5">Internal notes</h4>
+              <p className="text-[13px] text-fg-2">{load.notes}</p>
+            </Card>
+          )}
         </div>
+      )}
 
-        {/* Tab Navigation */}
-        <div className="flex bg-slate-950 border-b border-slate-800 px-6 shrink-0 space-x-2">
-          {[
-            { id: 'OVERVIEW', label: 'Overview' },
-            { id: 'STOPS', label: 'Stops & Route' },
-            { id: 'DOCUMENTS', label: 'Documents & Rate Cons' },
-            { id: 'FINANCIALS', label: 'Financial Breakdown' },
-            { id: 'ACTIVITY', label: 'Audit Trail' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              className={`py-3 px-4 text-xs font-bold transition border-b-2 ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-400 bg-slate-900/50'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-              onClick={() => setActiveTab(tab.id as any)}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {activeTab === 'STOPS' && (
+        <div className="space-y-3">
+          <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide">Route stops & appointments</h3>
+          {load.stops && load.stops.length > 0 ? load.stops.map(stop => (
+            <Card key={stop.id}>
+              <Badge tone="accent" className="mb-2">{stop.type} — Stop #{stop.sequence}</Badge>
+              <p className="text-[13.5px] text-fg font-medium">{stop.facilityName || 'Facility'}</p>
+              <p className="text-[12px] text-fg-2 mt-0.5">{stop.address}, {stop.city}, {stop.state} {stop.zip}</p>
+            </Card>
+          )) : (
+            <p className="text-[13px] text-fg-3 italic">No custom stops configured.</p>
+          )}
         </div>
+      )}
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-300">
-          {activeTab === 'OVERVIEW' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                  <h3 className="font-bold text-white text-xs uppercase tracking-wider text-slate-400">Broker & Customer Details</h3>
-                  <div className="space-y-1 text-xs">
-                    <p><span className="text-slate-500">Name:</span> <strong className="text-white">{load.brokerName}</strong></p>
-                    <p><span className="text-slate-500">Broker Ref #:</span> <span className="font-mono text-blue-400 font-bold">{load.brokerReference}</span></p>
-                    <p><span className="text-slate-500">Gross Rate:</span> <span className="font-mono text-emerald-400 font-bold">${(load.rateMinor / 100).toFixed(2)}</span></p>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                  <h3 className="font-bold text-white text-xs uppercase tracking-wider text-slate-400">Driver & Equipment Assignment</h3>
-                  <div className="space-y-1 text-xs">
-                    <p><span className="text-slate-500">Driver:</span> <strong className="text-white">{load.driverName || 'Unassigned'}</strong></p>
-                    <p><span className="text-slate-500">Truck Unit #:</span> <span className="font-mono text-slate-200">{load.truckNumber || 'Unassigned'}</span></p>
-                    <p><span className="text-slate-500">Trailer #:</span> <span className="font-mono text-slate-200">{load.trailerNumber || 'Unassigned'}</span></p>
-                  </div>
-                </div>
+      {activeTab === 'DOCUMENTS' && (
+        <div className="space-y-5">
+          <Card>
+            <form onSubmit={handleUploadDoc} className="flex items-end gap-3">
+              <div className="flex-1">
+                <Select
+                  label="Document type"
+                  value={docType}
+                  onChange={e => setDocType(e.target.value)}
+                  options={[
+                    { value: 'BOL', label: 'Bill of Lading (BOL)' },
+                    { value: 'RATE_CON', label: 'Rate Confirmation' },
+                    { value: 'POD', label: 'Proof of Delivery (POD)' },
+                    { value: 'RECEIPT', label: 'Expense Receipt' },
+                  ]}
+                />
               </div>
+              <div className="flex-1">
+                <Input
+                  label="File description"
+                  required
+                  value={docName}
+                  onChange={e => setDocName(e.target.value)}
+                  placeholder="e.g. Signed Rate Con"
+                />
+              </div>
+              <Button type="submit" icon={<Upload size={14} />}>Upload</Button>
+            </form>
+          </Card>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+          <div className="space-y-2">
+            {load.documents && load.documents.length > 0 ? load.documents.map(doc => (
+              <Card key={doc.id} className="flex justify-between items-center">
                 <div>
-                  <h3 className="font-bold text-white">Status Workflow Advancement</h3>
-                  <p className="text-slate-400 text-xs mt-0.5">Current active status is <span className="font-mono font-bold text-blue-400">{load.status}</span></p>
+                  <p className="text-[13.5px] text-fg font-medium">{doc.name}</p>
+                  <p className="text-[11px] text-fg-3 mt-0.5">{doc.type} • Uploaded by {doc.uploadedBy} on {new Date(doc.uploadedAt).toLocaleString()}</p>
                 </div>
-                {load.status !== 'PAID' && load.status !== 'CANCELLED' && (
-                  <button 
-                    disabled={isAdvancing} 
-                    onClick={handleAdvanceStatus}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5"
-                  >
-                    <CheckCircle size={15} />
-                    <span>{isAdvancing ? 'Updating...' : 'Advance Next Status'}</span>
-                  </button>
-                )}
-              </div>
-
-              {load.notes && (
-                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
-                  <h4 className="font-bold text-slate-400 text-[11px] uppercase tracking-wider">Internal Notes</h4>
-                  <p className="text-slate-300">{load.notes}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'STOPS' && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider">Route Stops & Appointments</h3>
-              {load.stops && load.stops.length > 0 ? load.stops.map(stop => (
-                <div key={stop.id} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-2 inline-block">
-                        {stop.type} — Stop #{stop.sequence}
-                      </span>
-                      <p className="font-bold text-white text-sm">{stop.facilityName || 'Facility'}</p>
-                      <p className="text-slate-400 text-xs">{stop.address}, {stop.city}, {stop.state} {stop.zip}</p>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <p className="text-slate-500 italic">No custom stops configured.</p>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'DOCUMENTS' && (
-            <div className="space-y-6">
-              <form onSubmit={handleUploadDoc} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-end space-x-3">
-                <div className="flex-1">
-                  <label className="block text-slate-400 font-semibold mb-1">Document Type</label>
-                  <select className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={docType} onChange={e => setDocType(e.target.value)}>
-                    <option value="BOL">Bill of Lading (BOL)</option>
-                    <option value="RATE_CON">Rate Confirmation</option>
-                    <option value="POD">Proof of Delivery (POD)</option>
-                    <option value="RECEIPT">Expense Receipt</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-slate-400 font-semibold mb-1">File Description</label>
-                  <input required type="text" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500" value={docName} onChange={e => setDocName(e.target.value)} placeholder="e.g. Signed Rate Con" />
-                </div>
-                <button type="submit" className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-1.5 h-[42px]">
-                  <Upload size={15} />
-                  <span>Upload</span>
-                </button>
-              </form>
-
-              <div className="space-y-2">
-                {load.documents && load.documents.length > 0 ? load.documents.map(doc => (
-                  <div key={doc.id} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-white">{doc.name}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">{doc.type} • Uploaded by {doc.uploadedBy} on {new Date(doc.uploadedAt).toLocaleString()}</p>
-                    </div>
-                    <button className="text-blue-400 hover:underline font-bold text-xs">View Document</button>
-                  </div>
-                )) : <p className="text-slate-500 italic">No documents attached yet.</p>}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'FINANCIALS' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex justify-between items-center text-sm">
-                <span className="text-slate-400 font-semibold">Agreed Base Gross Rate</span>
-                <span className="font-mono font-extrabold text-emerald-400 text-base">${(load.rateMinor / 100).toFixed(2)}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <h3 className="font-bold text-white text-xs uppercase tracking-wider">Accessorials & Fuel Surcharge</h3>
-                {load.accessorials && load.accessorials.length > 0 ? load.accessorials.map(acc => (
-                  <div key={acc.id} className="flex justify-between items-center border-b border-slate-800 py-1.5 text-xs">
-                    <span className="text-slate-300">{acc.type} - {acc.description}</span>
-                    <span className="font-mono text-emerald-400">${(acc.billableAmountMinor / 100).toFixed(2)}</span>
-                  </div>
-                )) : <p className="text-slate-500 italic">No extra accessorials attached.</p>}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'ACTIVITY' && (
-            <div className="p-6 text-center text-slate-500 italic">
-              Audit log activity stream for Load #{load.loadNumber}.
-            </div>
-          )}
+                <button className="text-[12.5px] font-semibold text-accent hover:underline">View document</button>
+              </Card>
+            )) : <p className="text-[13px] text-fg-3 italic">No documents attached yet.</p>}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {activeTab === 'FINANCIALS' && (
+        <div className="space-y-3">
+          <Card className="flex justify-between items-center">
+            <span className="text-[13px] text-fg-2 font-medium">Agreed base gross rate</span>
+            <span className="text-[16px] font-semibold text-pos tnum">${(load.rateMinor / 100).toFixed(2)}</span>
+          </Card>
+          <Card>
+            <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide mb-2">Accessorials & fuel surcharge</h3>
+            {load.accessorials && load.accessorials.length > 0 ? load.accessorials.map(acc => (
+              <div key={acc.id} className="flex justify-between items-center border-b border-bd py-2 text-[13px] last:border-b-0">
+                <span className="text-fg-2">{acc.type} - {acc.description}</span>
+                <span className="text-pos tnum">${(acc.billableAmountMinor / 100).toFixed(2)}</span>
+              </div>
+            )) : <p className="text-[13px] text-fg-3 italic">No extra accessorials attached.</p>}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'ACTIVITY' && (
+        <Card className="text-center text-[13px] text-fg-3 italic py-6">
+          Audit log activity stream for Load #{load.loadNumber}.
+        </Card>
+      )}
+    </Modal>
   );
 };

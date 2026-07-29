@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Customer, Driver, Equipment, Load } from '../../types/tms';
 import { mockStore } from '../../services/mockStore';
 import { useAuth } from '../../context/AuthContext';
-import { Edit2, DollarSign, MapPin, Truck, AlertTriangle, X, Check } from 'lucide-react';
+import { DollarSign, MapPin, Truck, AlertTriangle, Check } from 'lucide-react';
+import { Modal, Card, Input, Select, Textarea, Button } from '../ui';
 
 interface EditLoadModalProps {
   isOpen: boolean;
@@ -34,7 +35,7 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
   const [deadheadMiles, setDeadheadMiles] = useState(load?.deadheadMiles || 0);
   const [notes, setNotes] = useState(load?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
-  
+
   useEffect(() => {
     if (load) {
       setBrokerId(load.brokerId || '');
@@ -84,11 +85,11 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
       };
 
       await mockStore.updateLoad(load.id, updatedLoad as any, currentUser);
-      
+
       if (driverId !== load.driverId || truckId !== load.truckId || trailerId !== load.trailerId) {
          await mockStore.assignDriverAndEquipment(load.id, driverId || '', truckId || '', trailerId || '', currentUser);
       }
-      
+
       onReload();
       onClose();
     } catch (err) {
@@ -99,189 +100,174 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-50 p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col space-y-0 overflow-hidden">
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
-              <Edit2 size={20} />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-extrabold text-white">Edit Load</h2>
-                <span className="font-mono text-xs bg-slate-800 text-blue-400 font-bold px-2 py-0.5 rounded">{load.loadNumber}</span>
-              </div>
-              <p className="text-xs text-slate-400">Update rates, route cities, dates, or driver assignment.</p>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Edit load"
+      subtitle={`${load.loadNumber} — update rates, route cities, dates, or driver assignment.`}
+      size="lg"
+      busy={isSaving}
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          {!isPaid && (
+            <Button type="submit" form="edit-load-form" icon={<Check size={14} />} loading={isSaving}>
+              {isSaving ? 'Saving…' : 'Save changes'}
+            </Button>
+          )}
+        </>
+      }
+    >
+      {isPaid && (
+        <div className="mb-5 p-4 rounded-ctl bg-warn-bg border border-warn/30 text-warn text-[12.5px] flex items-center gap-3">
+          <AlertTriangle size={18} className="shrink-0" />
+          <span>This load has been marked as <strong>PAID</strong> and is locked against modifications.</span>
+        </div>
+      )}
+
+      <form id="edit-load-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Customer & Rates */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-fg-2 font-semibold uppercase tracking-wide text-[11px]">
+            <DollarSign size={14} className="text-accent" />
+            <span>Customer & rate information</span>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition">
-            <X size={18} />
-          </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Select
+              label="Customer/broker account*"
+              disabled={isPaid}
+              required
+              value={brokerId}
+              onChange={e => setBrokerId(e.target.value)}
+              options={[
+                { value: '', label: 'Select…' },
+                ...customers.map(c => ({ value: c.id, label: c.name })),
+              ]}
+            />
+            <Input
+              label="Broker reference #*"
+              disabled={isPaid}
+              required
+              type="text"
+              value={brokerReference}
+              onChange={e => setBrokerReference(e.target.value)}
+              className="tnum"
+            />
+            <Input
+              label="Gross rate ($)*"
+              disabled={isPaid}
+              required
+              type="number"
+              min="0"
+              step="0.01"
+              value={rate}
+              onChange={e => setRate(Number(e.target.value))}
+              className="tnum text-pos font-semibold"
+            />
+          </div>
         </div>
 
-        {/* Paid Notice Alert */}
-        {isPaid && (
-          <div className="m-6 p-4 rounded-xl bg-amber-950/60 border border-amber-800 text-amber-200 text-xs flex items-center space-x-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-            <span>This load has been marked as <strong>PAID</strong> and is locked against modifications.</span>
-          </div>
-        )}
+        <div className="border-t border-bd" />
 
-        {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
-          {/* Section 1: Customer & Rates */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-slate-300 font-bold uppercase tracking-wider text-[11px]">
-              <DollarSign size={15} className="text-blue-400" />
-              <span>Customer & Rate Information</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Customer/Broker Account*</label>
-                <select 
-                  disabled={isPaid} 
-                  required 
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" 
-                  value={brokerId} 
-                  onChange={e => setBrokerId(e.target.value)}
-                >
-                  <option value="">Select...</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Broker Reference #*</label>
-                <input 
-                  disabled={isPaid} 
-                  required 
-                  type="text" 
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" 
-                  value={brokerReference} 
-                  onChange={e => setBrokerReference(e.target.value)} 
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Gross Rate ($)*</label>
-                <input 
-                  disabled={isPaid} 
-                  required 
-                  type="number" 
-                  min="0" 
-                  step="0.01" 
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono font-bold text-emerald-400 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" 
-                  value={rate} 
-                  onChange={e => setRate(Number(e.target.value))} 
-                />
-              </div>
-            </div>
+        {/* Section 2: Route Specs */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-fg-2 font-semibold uppercase tracking-wide text-[11px]">
+            <MapPin size={14} className="text-accent" />
+            <span>Route & mileage specs</span>
           </div>
 
-          <div className="border-t border-slate-800/80"></div>
-
-          {/* Section 2: Route Specs */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-slate-300 font-bold uppercase tracking-wider text-[11px]">
-              <MapPin size={15} className="text-blue-400" />
-              <span>Route & Mileage Specs</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Pickup / Origin</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <input disabled={isPaid} type="text" placeholder="Origin City" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={originCity} onChange={e => setOriginCity(e.target.value)} />
-                  <input disabled={isPaid} type="text" placeholder="State" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={originState} onChange={e => setOriginState(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-[10px] mb-1">Pickup Date</label>
-                  <input disabled={isPaid} type="date" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="space-y-3">
+              <span className="text-[10.5px] text-fg-3 font-semibold uppercase tracking-wide block">Pickup / origin</span>
+              <div className="grid grid-cols-2 gap-2">
+                <Input disabled={isPaid} placeholder="Origin city" value={originCity} onChange={e => setOriginCity(e.target.value)} />
+                <Input disabled={isPaid} placeholder="State" value={originState} onChange={e => setOriginState(e.target.value)} />
               </div>
+              <Input label="Pickup date" disabled={isPaid} type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} className="tnum" />
+            </Card>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Delivery / Destination</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <input disabled={isPaid} type="text" placeholder="Dest City" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={destCity} onChange={e => setDestCity(e.target.value)} />
-                  <input disabled={isPaid} type="text" placeholder="State" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={destState} onChange={e => setDestState(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-[10px] mb-1">Delivery Date</label>
-                  <input disabled={isPaid} type="date" className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} />
-                </div>
+            <Card className="space-y-3">
+              <span className="text-[10.5px] text-fg-3 font-semibold uppercase tracking-wide block">Delivery / destination</span>
+              <div className="grid grid-cols-2 gap-2">
+                <Input disabled={isPaid} placeholder="Dest city" value={destCity} onChange={e => setDestCity(e.target.value)} />
+                <Input disabled={isPaid} placeholder="State" value={destState} onChange={e => setDestState(e.target.value)} />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Loaded Miles</label>
-                <input disabled={isPaid} type="number" className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={loadedMiles} onChange={e => setLoadedMiles(Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Deadhead Miles</label>
-                <input disabled={isPaid} type="number" className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={deadheadMiles} onChange={e => setDeadheadMiles(Number(e.target.value))} />
-              </div>
-            </div>
+              <Input label="Delivery date" disabled={isPaid} type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} className="tnum" />
+            </Card>
           </div>
 
-          <div className="border-t border-slate-800/80"></div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Loaded miles"
+              disabled={isPaid}
+              type="number"
+              value={loadedMiles}
+              onChange={e => setLoadedMiles(Number(e.target.value))}
+              className="tnum"
+            />
+            <Input
+              label="Deadhead miles"
+              disabled={isPaid}
+              type="number"
+              value={deadheadMiles}
+              onChange={e => setDeadheadMiles(Number(e.target.value))}
+              className="tnum"
+            />
+          </div>
+        </div>
 
-          {/* Section 3: Driver & Equipment */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-slate-300 font-bold uppercase tracking-wider text-[11px]">
-              <Truck size={15} className="text-blue-400" />
-              <span>Dispatch Assignment</span>
-            </div>
+        <div className="border-t border-bd" />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Assign Driver</label>
-                <select disabled={isPaid} className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={driverId} onChange={e => setDriverId(e.target.value)}>
-                  <option value="">Unassigned</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Assign Truck</label>
-                <select disabled={isPaid} className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={truckId} onChange={e => setTruckId(e.target.value)}>
-                  <option value="">Unassigned</option>
-                  {equipment.filter(eq => eq.type === 'TRUCK').map(eq => <option key={eq.id} value={eq.id}>{eq.unitNumber}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Assign Trailer</label>
-                <select disabled={isPaid} className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={trailerId} onChange={e => setTrailerId(e.target.value)}>
-                  <option value="">Unassigned</option>
-                  {equipment.filter(eq => eq.type === 'TRAILER').map(eq => <option key={eq.id} value={eq.id}>{eq.unitNumber}</option>)}
-                </select>
-              </div>
-            </div>
+        {/* Section 3: Driver & Equipment */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-fg-2 font-semibold uppercase tracking-wide text-[11px]">
+            <Truck size={14} className="text-accent" />
+            <span>Dispatch assignment</span>
           </div>
 
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Notes</label>
-            <textarea disabled={isPaid} className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50" value={notes} onChange={e => setNotes(e.target.value)} rows={3}></textarea>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Select
+              label="Assign driver"
+              disabled={isPaid}
+              value={driverId}
+              onChange={e => setDriverId(e.target.value)}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...drivers.map(d => ({ value: d.id, label: d.name })),
+              ]}
+            />
+            <Select
+              label="Assign truck"
+              disabled={isPaid}
+              value={truckId}
+              onChange={e => setTruckId(e.target.value)}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...equipment.filter(eq => eq.type === 'TRUCK').map(eq => ({ value: eq.id, label: eq.unitNumber })),
+              ]}
+            />
+            <Select
+              label="Assign trailer"
+              disabled={isPaid}
+              value={trailerId}
+              onChange={e => setTrailerId(e.target.value)}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...equipment.filter(eq => eq.type === 'TRAILER').map(eq => ({ value: eq.id, label: eq.unitNumber })),
+              ]}
+            />
           </div>
+        </div>
 
-          {/* Modal Actions */}
-          <div className="flex justify-end space-x-2 pt-4 border-t border-slate-800">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition">
-              Cancel
-            </button>
-            {!isPaid && (
-              <button type="submit" disabled={isSaving} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center space-x-1.5">
-                <Check size={16} />
-                <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+        <Textarea
+          label="Notes"
+          disabled={isPaid}
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={3}
+        />
+      </form>
+    </Modal>
   );
 };
