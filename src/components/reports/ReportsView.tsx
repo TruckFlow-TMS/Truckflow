@@ -1,6 +1,7 @@
 import React from 'react';
 import { Load } from '../../types/tms';
-import { BarChart3, TrendingUp, Download } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
+import { TrendingUp, Download } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -10,12 +11,18 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { Button, Card, PageHeader, StatCard } from '../ui';
 
 interface ReportsViewProps {
   loads: Load[];
 }
 
+const cssVar = (name: string) =>
+  `rgb(${getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim()})`;
+
 export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
+  const { theme } = useTheme();
+
   const chartData = loads.map((l) => ({
     name: l.loadNumber,
     revenue: l.rateMinor / 100,
@@ -41,76 +48,77 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
     a.click();
   };
 
+  // Read the design tokens fresh on every render so a theme toggle updates
+  // the chart's colors immediately — recharts takes colors as props, not
+  // classes, so it cannot consume Tailwind tokens directly.
+  const axisLine = cssVar('bd');
+  const axisTick = { fill: cssVar('fg-3'), fontSize: 11 };
+  const tooltipStyle = {
+    backgroundColor: cssVar('surface'),
+    borderColor: cssVar('bd'),
+    borderRadius: '0.75rem',
+    fontSize: '12px',
+    color: cssVar('fg'),
+  };
+  const accentColor = cssVar('accent');
+  const posColor = cssVar('pos');
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
-            <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>Profitability & Operational Analytics</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Revenue per loaded mile, deadhead share, broker margins, & truck profitability.
-          </p>
-        </div>
+    <div className="space-y-3.5">
+      <PageHeader
+        title="Profitability & Operational Analytics"
+        subtitle="Revenue per loaded mile, deadhead share, broker margins, & truck profitability."
+        actions={
+          <Button variant="secondary" icon={<Download size={13} />} onClick={handleExportCSV}>
+            Export CSV report
+          </Button>
+        }
+      />
 
-        <button
-          onClick={handleExportCSV}
-          className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition flex items-center space-x-2 self-start sm:self-auto shadow-sm"
-        >
-          <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>Export CSV Report</span>
-        </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard
+          label="Total distance traveled"
+          value={`${totalMiles.toLocaleString()} mi`}
+          sub={`${totalLoaded.toLocaleString()} loaded mi`}
+        />
+        <StatCard
+          label="Deadhead share"
+          value={`${deadheadPercentage}%`}
+          sub={`Non-revenue cost miles (${totalDeadhead} mi)`}
+        />
+        <StatCard
+          label="Avg revenue / loaded mile"
+          value={`$${totalLoaded ? ((loads.reduce((s, l) => s + l.rateMinor, 0) / 100) / totalLoaded).toFixed(2) : '0.00'}`}
+          sub="Target > $3.20 / mi"
+        />
       </div>
 
-      {/* Analytics Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Distance Traveled</span>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalMiles.toLocaleString()} mi</div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{totalLoaded.toLocaleString()} loaded mi</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Deadhead Share %</span>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{deadheadPercentage}%</div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-500 mt-1">Non-revenue cost miles ({totalDeadhead} mi)</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Avg Revenue / Loaded Mile</span>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-            ${totalLoaded ? ((loads.reduce((s, l) => s + l.rateMinor, 0) / 100) / totalLoaded).toFixed(2) : '0.00'}
-          </div>
-          <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1">Target &gt; $3.20 / mi</p>
-        </div>
-      </div>
-
-      {/* Recharts Bar Chart */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-          <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>Gross Rate ($) per Load Comparison</span>
-        </h3>
-
+      <Card
+        header={
+          <h3 className="text-[13.5px] font-semibold text-fg flex items-center gap-2">
+            <TrendingUp size={16} className="text-accent" />
+            <span>Gross rate ($) per load comparison</span>
+          </h3>
+        }
+      >
         <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer key={theme} width="100%" height="100%">
             <BarChart data={chartData}>
-              <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-              <YAxis stroke="#64748b" fontSize={11} />
+              <XAxis dataKey="name" stroke={axisLine} tick={axisTick} />
+              <YAxis stroke={axisLine} tick={axisTick} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px', color: '#fff' }}
+                contentStyle={tooltipStyle}
                 formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Gross Rate']}
               />
               <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
                 {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#2563eb' : '#10b981'} />
+                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? accentColor : posColor} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
