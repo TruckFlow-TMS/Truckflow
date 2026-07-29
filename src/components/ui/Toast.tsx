@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { CheckCircle, XCircle, Info, X } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
 export interface Toast {
   id: string;
@@ -32,31 +33,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none">
+      <div className="fixed bottom-5 right-5 z-[60] flex flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-start p-4 rounded-lg shadow-lg border max-w-sm w-full animate-in slide-in-from-right-8 duration-300 ${
-              toast.type === 'success' 
-                ? 'bg-white dark:bg-slate-900 border-green-200 dark:border-green-900/50' 
-                : toast.type === 'error'
-                ? 'bg-white dark:bg-slate-900 border-red-200 dark:border-red-900/50'
-                : 'bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-900/50'
-            }`}
+            className={cn(
+              'flex items-start gap-2.5 px-3.5 py-2.5 rounded-card border shadow-lift text-[12.5px] font-medium min-w-[260px]',
+              toast.type === 'success' && 'bg-pos-bg border-pos/20 text-pos',
+              toast.type === 'error' && 'bg-danger-bg border-danger/20 text-danger',
+              toast.type === 'info' && 'bg-accent-weak border-accent/20 text-accent',
+            )}
           >
-            <div className="flex-shrink-0 mr-3">
-              {toast.type === 'success' && <CheckCircle className="text-green-500" size={20} />}
-              {toast.type === 'error' && <XCircle className="text-red-500" size={20} />}
-              {toast.type === 'info' && <Info className="text-blue-500" size={20} />}
+            <div className="flex-shrink-0">
+              {toast.type === 'success' && <CheckCircle size={18} />}
+              {toast.type === 'error' && <XCircle size={18} />}
+              {toast.type === 'info' && <Info size={18} />}
             </div>
-            <div className="flex-1 mr-2 text-sm text-gray-800 dark:text-slate-200">
+            <div className="flex-1">
               {toast.message}
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
+              className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         ))}

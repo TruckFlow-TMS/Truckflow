@@ -14,3 +14,6 @@ export { Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 export { Textarea } from './Textarea';
 export type { TextareaProps } from './Textarea';
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';
+export { ConfirmModal } from './ConfirmModal';
