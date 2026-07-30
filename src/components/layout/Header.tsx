@@ -19,7 +19,7 @@ export function Header({ onOpenCreateLoad }: HeaderProps) {
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
   return (
-    <header className="h-[54px] shrink-0 bg-surface border-b border-bd flex items-center gap-3.5 px-4 select-none">
+    <header className="h-[54px] shrink-0 bg-topbar border-b border-bd flex items-center gap-3.5 px-4 select-none">
       <div className="relative flex-1 max-w-[340px]">
         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
         <input

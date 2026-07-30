@@ -30,7 +30,7 @@ interface DispatchBoardViewProps {
   onReload: () => void;
 }
 
-const stageAction = 'inline-flex items-center gap-1 px-2 py-1 rounded-ctl text-[10px] font-semibold bg-accent-grad text-on-accent hover:opacity-90 transition';
+const stageAction = 'inline-flex items-center gap-1 px-2 py-1 rounded-ctl text-[10px] font-semibold bg-accent-grad text-on-hero hover:opacity-90 transition';
 
 export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   loads,

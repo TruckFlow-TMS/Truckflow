@@ -6,7 +6,7 @@ import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge,
-  EmptyState, statusTone, humanizeStatus,
+  StatCard, EmptyState, statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
 import { Building2, Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -45,6 +45,19 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
       return matchSearch && matchStatus;
     });
   }, [customers, search, statusFilter]);
+
+  // KPI strip mirrors the Loads view: one hero card anchoring three quiet ones.
+  const kpiData = useMemo(() => {
+    const active = customers.filter(c => c.isActive).length;
+    const total = customers.length;
+    const activePct = total ? Math.round((active / total) * 1000) / 10 : 0;
+    const withMc = customers.filter(c => !!c.mcNumber).length;
+    const terms = customers.filter(c => typeof c.paymentTermsDays === 'number');
+    const avgTerms = terms.length
+      ? Math.round(terms.reduce((sum, c) => sum + (c.paymentTermsDays ?? 0), 0) / terms.length)
+      : 0;
+    return { total, active, activePct, withMc, avgTerms };
+  }, [customers]);
 
   const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE) || 1;
   const paginatedCustomers = useMemo(() => {
@@ -213,6 +226,36 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
           </Button>
         }
       />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          variant="hero"
+          label="Broker & customer accounts"
+          value={String(kpiData.total)}
+          sub={`${kpiData.active} active · ${kpiData.total - kpiData.active} inactive`}
+        />
+        <StatCard
+          label="Authorities on file"
+          value={String(kpiData.withMc)}
+          sub={
+            kpiData.withMc < kpiData.total
+              ? <span className="text-warn font-semibold">{kpiData.total - kpiData.withMc} missing an MC number</span>
+              : 'Every account has an MC number'
+          }
+        />
+        <StatCard
+          variant="ring"
+          ringPct={kpiData.activePct}
+          label="Active accounts"
+          value={`${kpiData.activePct}%`}
+          sub="Cleared to book freight"
+        />
+        <StatCard
+          label="Average payment terms"
+          value={`${kpiData.avgTerms} days`}
+          sub="Net terms across the book"
+        />
+      </div>
 
       <DataTable
         columns={columns}

@@ -34,6 +34,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
   const totalDeadhead = loads.reduce((sum, l) => sum + l.deadheadMiles, 0);
   const totalMiles = totalLoaded + totalDeadhead || 1;
   const deadheadPercentage = ((totalDeadhead / totalMiles) * 100).toFixed(1);
+  const grossRevenue = loads.reduce((sum, l) => sum + l.rateMinor, 0) / 100;
+  const loadedSharePct = Math.round((totalLoaded / totalMiles) * 1000) / 10;
+  const revPerLoadedMile = totalLoaded ? grossRevenue / totalLoaded : 0;
 
   const handleExportCSV = () => {
     const headers = 'LoadNumber,Broker,Status,GrossRateUSD,LoadedMiles,DeadheadMiles\n';
@@ -75,21 +78,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label="Total distance traveled"
-          value={`${totalMiles.toLocaleString()} mi`}
-          sub={`${totalLoaded.toLocaleString()} loaded mi`}
+          variant="hero"
+          label="Gross revenue"
+          value={`$${grossRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+          sub={`Across ${loads.length} loads · ${totalMiles.toLocaleString()} mi run`}
+        />
+        <StatCard
+          label="Avg revenue / loaded mile"
+          value={`$${revPerLoadedMile.toFixed(2)}`}
+          sub={
+            revPerLoadedMile >= 3.2
+              ? <span className="text-pos font-semibold">Above the $3.20 target</span>
+              : <span className="text-warn font-semibold">Below the $3.20 target</span>
+          }
+        />
+        <StatCard
+          variant="ring"
+          ringPct={loadedSharePct}
+          label="Loaded mile share"
+          value={`${loadedSharePct}%`}
+          sub={`${totalLoaded.toLocaleString()} of ${totalMiles.toLocaleString()} mi`}
         />
         <StatCard
           label="Deadhead share"
           value={`${deadheadPercentage}%`}
-          sub={`Non-revenue cost miles (${totalDeadhead} mi)`}
-        />
-        <StatCard
-          label="Avg revenue / loaded mile"
-          value={`$${totalLoaded ? ((loads.reduce((s, l) => s + l.rateMinor, 0) / 100) / totalLoaded).toFixed(2) : '0.00'}`}
-          sub="Target > $3.20 / mi"
+          sub={`Non-revenue cost miles (${totalDeadhead.toLocaleString()} mi)`}
         />
       </div>
 

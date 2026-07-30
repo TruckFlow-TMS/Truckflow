@@ -73,7 +73,9 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     const totalAr = invoices.filter(i => i.status === 'ISSUED' || i.status === 'OVERDUE').reduce((acc, curr) => acc + curr.totalMinor, 0);
     const collectedThisMonth = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + curr.totalMinor, 0);
     const overdueCount = invoices.filter(i => i.status === 'OVERDUE').length;
-    return { totalAr, collectedThisMonth, overdueCount };
+    const billed = totalAr + collectedThisMonth;
+    const collectedPct = billed ? Math.round((collectedThisMonth / billed) * 1000) / 10 : 0;
+    return { totalAr, collectedThisMonth, overdueCount, collectedPct };
   }, [invoices]);
 
   const formatCurrency = (minorUnits?: number) => {
@@ -316,7 +318,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           variant="hero"
           label="Total accounts receivable"
@@ -327,6 +329,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
           label="Collected this month"
           value={formatCurrency(kpiData.collectedThisMonth)}
           sub="Paid invoices"
+        />
+        <StatCard
+          variant="ring"
+          ringPct={kpiData.collectedPct}
+          label="Collection rate"
+          value={`${kpiData.collectedPct}%`}
+          sub="Paid vs. total billed"
         />
         <StatCard
           label="Overdue invoices"

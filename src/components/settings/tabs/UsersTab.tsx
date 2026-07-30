@@ -328,10 +328,30 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard label="Total registered users" value={String(kpiData.total)} sub="Across all roles" />
-        <StatCard label="Active accounts" value={String(kpiData.active)} sub="Currently able to sign in" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          variant="hero"
+          label="Registered users"
+          value={String(kpiData.total)}
+          sub={`${kpiData.active} active · ${kpiData.total - kpiData.active} disabled`}
+        />
         <StatCard label="System administrators" value={String(kpiData.admins)} sub="Full access role" />
+        <StatCard
+          variant="ring"
+          ringPct={kpiData.total ? Math.round((kpiData.active / kpiData.total) * 1000) / 10 : 0}
+          label="Active accounts"
+          value={`${kpiData.total ? Math.round((kpiData.active / kpiData.total) * 1000) / 10 : 0}%`}
+          sub="Currently able to sign in"
+        />
+        <StatCard
+          label="Access expiring"
+          value={String(expiringUsersCount)}
+          sub={
+            expiringUsersCount > 0
+              ? <span className="text-warn font-semibold">Within 7 days</span>
+              : 'No accounts lapsing soon'
+          }
+        />
       </div>
 
       <DataTable

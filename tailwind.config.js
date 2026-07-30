@@ -23,6 +23,8 @@ export default {
         'accent-weak': token('accent-weak'),
         'on-accent':   token('on-accent'),
         'on-danger':   token('on-danger'),
+        'on-hero':     token('on-hero'),
+        topbar:        token('topbar'),
         pos:           token('pos'),
         'pos-bg':      token('pos-bg'),
         warn:          token('warn'),
@@ -49,9 +51,13 @@ export default {
       boxShadow: {
         card: 'var(--shadow-card)',
         lift: 'var(--shadow-lift)',
+        // Named 'btn'/'hero', not 'accent': `shadow-accent` would collide with
+        // the shadow-*color* utility the sidebar uses (shadow-accent/40).
+        btn: 'var(--shadow-accent)',
+        hero: 'var(--shadow-hero)',
       },
       backgroundImage: {
-        'accent-grad': 'linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-2)))',
+        'accent-grad': 'var(--hero-bg)',
       },
     },
   },

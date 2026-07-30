@@ -29,6 +29,15 @@
   --on-accent: 255 255 255;
   --on-danger: 255 255 255;
 
+  /* Gradient fills (hero KPI, primary button, brand mark). Kept as its own
+     token rather than derived from --accent/--accent-2, because in dark those
+     two flip to *light* blues — deriving the gradient from them produced a
+     glaring pale band where the design calls for a deep, muted one. */
+  --hero-bg: linear-gradient(135deg, #2E6BE6, #1B4FBF);
+  /* Text on --hero-bg. White in BOTH themes: the gradient is dark in both,
+     unlike flat --accent, so --on-accent is the wrong token here. */
+  --on-hero: 255 255 255;
+
   /* semantic */
   --pos: 11 122 80;      --pos-bg: 220 245 233;
   --warn: 138 90 0;      --warn-bg: 253 240 213;
@@ -36,13 +45,18 @@
   --danger: 190 40 40;   --danger-bg: 253 228 228;
   --neutral: 90 103 121; --neutral-bg: 231 236 243;
 
+  /* chrome */
+  --topbar: 255 255 255;
+
   /* elevation */
   --shadow-card: 0 1px 2px rgb(17 27 46 / .05), 0 1px 3px rgb(17 27 46 / .05);
   --shadow-lift: 0 2px 4px rgb(17 27 46 / .06), 0 12px 28px rgb(17 27 46 / .10);
+  --shadow-accent: 0 1px 2px rgb(27 79 191 / .35), 0 4px 10px rgb(27 79 191 / .22);
+  --shadow-hero: 0 2px 6px rgb(27 79 191 / .30), 0 12px 26px rgb(27 79 191 / .24);
 
-  /* ── Sidebar: intentionally NOT redefined in .dark ──
-     The sidebar stays navy in both themes. This is a design decision,
-     not an oversight — it anchors the layout and keeps brand constant. */
+  /* ── Sidebar ──
+     Navy in both themes, but the *depth* is re-tuned in .dark so the rail
+     still reads as deeper than the canvas behind it. */
   --side-bg: 17 28 51;
   --side-bg-2: 12 21 38;
   --side-bd: 255 255 255;      /* used at low alpha: border-side-bd/10 */
@@ -70,14 +84,30 @@
   --on-accent: 11 18 32;
   --on-danger: 11 18 32;
 
+  --hero-bg: linear-gradient(135deg, #2C57B8, #1B3576);
+  --on-hero: 255 255 255;
+
   --pos: 61 214 140;     --pos-bg: 13 49 38;
   --warn: 245 194 66;    --warn-bg: 52 40 16;
   --violet: 167 139 250; --violet-bg: 36 30 68;
   --danger: 248 113 113; --danger-bg: 60 20 20;
   --neutral: 158 171 194; --neutral-bg: 35 46 69;
 
+  --topbar: 20 29 46;
+
   --shadow-card: 0 1px 2px rgb(0 0 0 / .35);
   --shadow-lift: 0 10px 30px rgb(0 0 0 / .5);
+  --shadow-accent: 0 1px 2px rgb(0 0 0 / .4), 0 4px 10px rgb(0 0 0 / .3);
+  --shadow-hero: 0 2px 6px rgb(0 0 0 / .4), 0 12px 26px rgb(0 0 0 / .35);
+
+  /* Sidebar deepens below the dark canvas (--canvas is 15 22 38) so the rail
+     still recedes. Reusing the light values here would make it *lighter* than
+     the page — the exact inversion the design brief rules out. */
+  --side-bg: 10 17 33;
+  --side-bg-2: 7 12 24;
+  --side-fg: 139 153 179;
+  --side-lab: 93 109 138;
+  --side-active: 91 141 246;
 }
 
 @layer base {

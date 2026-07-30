@@ -61,7 +61,9 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     const trucks = equipment.filter(e => e.type === 'TRUCK').length;
     const trailers = equipment.filter(e => e.type === 'TRAILER').length;
     const maintenance = equipment.filter(e => e.status === 'MAINTENANCE').length;
-    return { trucks, trailers, maintenance };
+    const total = equipment.length;
+    const inServicePct = total ? Math.round(((total - maintenance) / total) * 1000) / 10 : 0;
+    return { trucks, trailers, maintenance, total, inServicePct };
   }, [equipment]);
 
   const handleOpenModal = (eq?: Equipment) => {
@@ -242,14 +244,22 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label="Total power units (trucks)"
-          value={String(kpiData.trucks)}
-          sub="Active fleet"
+          variant="hero"
+          label="Total fleet assets"
+          value={String(kpiData.total)}
+          sub={`${kpiData.trucks} power units · ${kpiData.trailers} trailers`}
         />
         <StatCard
-          label="Total trailers"
-          value={String(kpiData.trailers)}
-          sub="Active fleet"
+          label="Power units (trucks)"
+          value={String(kpiData.trucks)}
+          sub="Tractors on the roster"
+        />
+        <StatCard
+          variant="ring"
+          ringPct={kpiData.inServicePct}
+          label="In service"
+          value={`${kpiData.inServicePct}%`}
+          sub="Not held in maintenance"
         />
         <StatCard
           label="In maintenance"
@@ -280,7 +290,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
               <button
                 className={cn(
                   'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
-                  activeTab === 'TRUCK' ? 'bg-accent-grad text-on-accent shadow-card' : 'text-fg-2 hover:text-fg',
+                  activeTab === 'TRUCK' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
                 )}
                 onClick={() => { setActiveTab('TRUCK'); setCurrentPage(1); }}
               >
@@ -290,7 +300,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
               <button
                 className={cn(
                   'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
-                  activeTab === 'TRAILER' ? 'bg-accent-grad text-on-accent shadow-card' : 'text-fg-2 hover:text-fg',
+                  activeTab === 'TRAILER' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
                 )}
                 onClick={() => { setActiveTab('TRAILER'); setCurrentPage(1); }}
               >

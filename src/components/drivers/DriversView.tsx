@@ -6,7 +6,7 @@ import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge, Avatar,
-  EmptyState, statusTone, humanizeStatus,
+  StatCard, EmptyState, statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
 import { Users, Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -56,6 +56,25 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
       return matchSearch && matchStatus && matchType;
     });
   }, [drivers, search, statusFilter, typeFilter]);
+
+  // KPI strip mirrors the Loads view: one hero card anchoring three quiet ones.
+  const kpiData = useMemo(() => {
+    const available = drivers.filter(d => d.status === 'AVAILABLE').length;
+    const onLoad = drivers.filter(d => d.status === 'ON_LOAD').length;
+    const total = drivers.length;
+    const utilisation = total ? Math.round((onLoad / total) * 1000) / 10 : 0;
+    // Credentials lapsing inside 30 days — the number a compliance officer wants.
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() + 30);
+    const expiring = drivers.filter(d =>
+      [d.cdlExpiration, d.medicalCardExpiration].some(date => {
+        if (!date) return false;
+        const when = new Date(date);
+        return when <= cutoff;
+      }),
+    ).length;
+    return { total, available, onLoad, utilisation, expiring };
+  }, [drivers]);
 
   const totalPages = Math.ceil(filteredDrivers.length / ITEMS_PER_PAGE) || 1;
   const paginatedDrivers = useMemo(() => {
@@ -240,6 +259,36 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           </Button>
         }
       />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          variant="hero"
+          label="Drivers on the roster"
+          value={String(kpiData.total)}
+          sub={`${kpiData.available} available · ${kpiData.onLoad} on a load`}
+        />
+        <StatCard
+          label="Available now"
+          value={String(kpiData.available)}
+          sub="Ready to be dispatched"
+        />
+        <StatCard
+          variant="ring"
+          ringPct={kpiData.utilisation}
+          label="Utilisation"
+          value={`${kpiData.utilisation}%`}
+          sub="Currently running a load"
+        />
+        <StatCard
+          label="Credentials expiring"
+          value={String(kpiData.expiring)}
+          sub={
+            kpiData.expiring > 0
+              ? <span className="text-warn font-semibold">CDL or medical within 30 days</span>
+              : 'All current'
+          }
+        />
+      </div>
 
       <DataTable
         columns={columns}
