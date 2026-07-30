@@ -66,5 +66,3 @@ coverage/
 Thumbs.db
 desktop.ini
 ENV/
-
-# --- Local tooling notes: kept on disk, out of the repo ---
