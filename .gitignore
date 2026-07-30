@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # --- Secrets: never commit these ---
 .env
 .env.*
@@ -66,34 +65,5 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
-=======
-# Dependencies
-node_modules/
-.venv/
-venv/
 ENV/
-env/
 
-# Production builds
-dist/
-build/
-
-# Local DB & Storage
-*.db
-*.sqlite3
-*.log
-
-# IDE & Editor
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Environment Variables
-.env
-.env.local
-
-# OS Files
-.DS_Store
-Thumbs.db
->>>>>>> 74d4ab2 (feat: complete TruckFlow TMS V1.0 code)
