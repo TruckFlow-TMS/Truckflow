@@ -77,12 +77,20 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
 
   // Pagination Slice
   const totalPages = Math.ceil(filteredLoads.length / ITEMS_PER_PAGE) || 1;
+  // Clamped, because the result set can shrink underneath a page the user is
+  // already on — a narrowed filter, or deleting the last row of the last page.
+  // Slicing on a stale page number returns [] and the table renders its empty
+  // state over results that do exist, with the pager hidden (totalPages === 1)
+  // so there is no control left to get back. Clamping fails safe to the last
+  // real page instead.
+  const page = Math.min(currentPage, totalPages);
   const paginatedLoads = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredLoads.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredLoads, currentPage]);
+  }, [filteredLoads, page]);
 
-  // KPI figures derived from the same filtered set the table shows.
+  // Derived from the *unfiltered* set on purpose: these read as the state of the
+  // book, so they must not move when someone types in the search box.
   const kpis = useMemo(() => {
     const active = loads.filter((l) =>
       ['DISPATCHED', 'IN_TRANSIT', 'OPEN'].includes(l.status)).length;
@@ -183,6 +191,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           <button
             onClick={(e) => { e.stopPropagation(); setSelectedDetailLoad(ld); }}
             title="View details"
+            aria-label={`View details for load ${ld.loadNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Eye size={15} />
@@ -190,6 +199,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           <button
             onClick={(e) => { e.stopPropagation(); setEditingLoad(ld); }}
             title="Edit load"
+            aria-label={`Edit load ${ld.loadNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Edit2 size={15} />
@@ -198,6 +208,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
             <button
               onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(ld); }}
               title="Generate invoice"
+              aria-label={`Generate invoice for load ${ld.loadNumber}`}
               className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
             >
               <FileText size={15} />
@@ -206,6 +217,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           <button
             onClick={(e) => { e.stopPropagation(); setDeletingLoad(ld); }}
             title="Delete load"
+            aria-label={`Delete load ${ld.loadNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
           >
             <Trash2 size={15} />
@@ -321,7 +333,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
                   type="date"
                   aria-label="Pickup from"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
                   className="h-8 w-auto tnum"
                 />
                 <span className="text-[11.5px] text-fg-3">to</span>
@@ -329,7 +341,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
                   type="date"
                   aria-label="Pickup until"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
                   className="h-8 w-auto tnum"
                 />
               </div>
@@ -350,21 +362,21 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-[12px] text-fg-2">
           <span className="tnum">
-            Page {currentPage} of {totalPages}
+            Page {page} of {totalPages}
           </span>
           <div className="flex gap-2">
             <Button
               variant="secondary" size="sm"
               icon={<ChevronLeft size={13} />}
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(Math.max(1, page - 1))}
             >
               Previous
             </Button>
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
             >
               Next <ChevronRight size={13} />
             </Button>

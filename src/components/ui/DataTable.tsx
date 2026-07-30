@@ -60,8 +60,13 @@ export function DataTable<T>({
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   tabIndex={onRowClick ? 0 : undefined}
-                  role={onRowClick ? 'button' : undefined}
+                  // Deliberately NOT role="button": that overrides the implicit
+                  // `row` role and drops the cells out of the table for screen
+                  // readers, costing far more than the click affordance gains.
+                  // The row keeps its table semantics and simply becomes
+                  // focusable and Enter/Space-activatable.
                   onKeyDown={onRowClick ? (e) => {
+                    if (e.currentTarget !== e.target) return; // let cell controls keep their keys
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       onRowClick(row);
@@ -69,7 +74,7 @@ export function DataTable<T>({
                   } : undefined}
                   className={cn(
                     'border-b border-bd last:border-b-0 transition-colors',
-                    onRowClick && 'cursor-pointer hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:-outline-offset-2',
+                    onRowClick && 'cursor-pointer hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
                   )}
                 >
                   {columns.map((c) => (

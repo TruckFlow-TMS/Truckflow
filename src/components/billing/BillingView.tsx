@@ -65,10 +65,14 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
   }, [invoices, search, statusFilter, customers]);
 
   const totalPages = Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE) || 1;
+  // Clamped so a result set that shrinks under the current page (narrowed
+  // filter, deleted row) falls back to the last real page instead of slicing
+  // past the end and showing the empty state over rows that do exist.
+  const page = Math.min(currentPage, totalPages);
   const paginatedInvoices = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredInvoices.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredInvoices, currentPage]);
+  }, [filteredInvoices, page]);
 
   const kpiData = useMemo(() => {
     const totalAr = invoices.filter(i => i.status === 'ISSUED' || i.status === 'OVERDUE').reduce((acc, curr) => acc + curr.totalMinor, 0);
@@ -266,6 +270,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
           <button
             onClick={(e) => { e.stopPropagation(); handleOpenModal(inv); }}
             title="Edit invoice"
+            aria-label={`Edit invoice ${inv.invoiceNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Edit2 size={15} />
@@ -274,6 +279,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             <button
               onClick={(e) => { e.stopPropagation(); handleMarkPaid(inv); }}
               title="Mark paid"
+              aria-label={`Mark invoice ${inv.invoiceNumber} paid`}
               className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
             >
               <CheckCircle2 size={15} />
@@ -283,6 +289,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             <button
               onClick={(e) => { e.stopPropagation(); setVoidItem(inv); }}
               title="Void invoice"
+              aria-label={`Void invoice ${inv.invoiceNumber}`}
               className="p-1.5 rounded-ctl text-warn hover:bg-surface-2 transition-colors"
             >
               <Ban size={15} />
@@ -292,6 +299,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             <button
               onClick={(e) => { e.stopPropagation(); setDeleteItem(inv); }}
               title="Delete invoice"
+              aria-label={`Delete invoice ${inv.invoiceNumber}`}
               className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
             >
               <Trash2 size={15} />
@@ -386,21 +394,21 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-[12px] text-fg-2">
           <span className="tnum">
-            Page {currentPage} of {totalPages}
+            Page {page} of {totalPages}
           </span>
           <div className="flex gap-2">
             <Button
               variant="secondary" size="sm"
               icon={<ChevronLeft size={13} />}
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(Math.max(1, page - 1))}
             >
               Previous
             </Button>
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
             >
               Next <ChevronRight size={13} />
             </Button>

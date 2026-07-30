@@ -78,10 +78,14 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
   }, [drivers]);
 
   const totalPages = Math.ceil(filteredDrivers.length / ITEMS_PER_PAGE) || 1;
+  // Clamped so a result set that shrinks under the current page (narrowed
+  // filter, deleted row) falls back to the last real page instead of slicing
+  // past the end and showing the empty state over rows that do exist.
+  const page = Math.min(currentPage, totalPages);
   const paginatedDrivers = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredDrivers.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredDrivers, currentPage]);
+  }, [filteredDrivers, page]);
 
   const handleOpenModal = (driver?: Driver) => {
     if (driver) {
@@ -233,6 +237,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           <button
             onClick={() => handleOpenModal(d)}
             title="Edit"
+            aria-label={`Edit ${d.name}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Edit2 size={15} />
@@ -240,6 +245,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           <button
             onClick={() => setDeleteItem(d)}
             title="Delete"
+            aria-label={`Delete ${d.name}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
           >
             <Trash2 size={15} />
@@ -339,20 +345,20 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-[12px] text-fg-2">
-          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <span className="tnum">Page {page} of {totalPages}</span>
           <div className="flex gap-2">
             <Button
               variant="secondary" size="sm"
               icon={<ChevronLeft size={13} />}
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(Math.max(1, page - 1))}
             >
               Previous
             </Button>
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
             >
               Next <ChevronRight size={13} />
             </Button>

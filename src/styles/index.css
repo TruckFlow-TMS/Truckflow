@@ -20,7 +20,11 @@
   /* text */
   --fg: 17 27 46;
   --fg-2: 90 103 121;
-  --fg-3: 133 147 166;
+  /* 4.81:1 on --surface, 4.56:1 on --surface-2. The muted tier carries real
+     content (table sub-lines, card footnotes, placeholders) at 10.5–11.5px,
+     so it has to clear the 4.5:1 body-text bar — the 3:1 large-text
+     allowance does not apply at these sizes. */
+  --fg-3: 102 115 135;
 
   /* accent */
   --accent: 46 107 230;
@@ -76,7 +80,10 @@
 
   --fg: 232 236 244;
   --fg-2: 158 171 194;
-  --fg-3: 122 136 161;
+  /* 5.06:1 on --surface, 4.67:1 on --surface-2. Tuned against --surface-2
+     (the lighter of the two, and the one under table headers and inputs)
+     because that is the worst case in dark — the reverse of light mode. */
+  --fg-3: 132 146 171;
 
   --accent: 91 141 246;
   --accent-2: 123 165 250;

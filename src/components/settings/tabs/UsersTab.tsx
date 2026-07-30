@@ -86,10 +86,14 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
   }, [users, search, roleFilter, statusFilter]);
 
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE) || 1;
+  // Clamped so a result set that shrinks under the current page (narrowed
+  // filter, deleted row) falls back to the last real page instead of slicing
+  // past the end and showing the empty state over rows that do exist.
+  const page = Math.min(currentPage, totalPages);
   const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredUsers, currentPage]);
+  }, [filteredUsers, page]);
 
   const kpiData = useMemo(() => {
     const active = users.filter(u => u.isActive).length;
@@ -277,6 +281,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
           <button
             onClick={() => handleOpenModal(u)}
             title="Edit"
+            aria-label={`Edit ${u.name}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Edit2 size={15} />
@@ -285,6 +290,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
             <button
               onClick={() => setRenewItem(u)}
               title="Renew access"
+              aria-label={`Renew access for ${u.name}`}
               className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
             >
               <Calendar size={15} />
@@ -294,6 +300,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
             <button
               onClick={() => setRevokeItem(u)}
               title="Revoke access"
+              aria-label={`Revoke access for ${u.name}`}
               className="p-1.5 rounded-ctl text-warn hover:bg-surface-2 transition-colors"
             >
               <Ban size={15} />
@@ -302,6 +309,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
           <button
             onClick={() => setDeleteItem(u)}
             title="Delete"
+            aria-label={`Delete ${u.name}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
           >
             <Trash2 size={15} />
@@ -403,19 +411,19 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-[12px] text-fg-2">
-          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <span className="tnum">Page {page} of {totalPages}</span>
           <div className="flex gap-2">
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(Math.max(1, page - 1))}
             >
               Previous
             </Button>
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
             >
               Next
             </Button>

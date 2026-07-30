@@ -64,19 +64,26 @@ export interface FilterSearchProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /**
+   * Accessible name. Defaults to the placeholder, which is descriptive at every
+   * call site ("Search load, broker, driver…") — but unlike the placeholder it
+   * survives the user typing, so the field never goes nameless mid-entry.
+   */
+  label?: string;
   className?: string;
 }
 
 export const FilterSearch: React.FC<FilterSearchProps> = ({
-  value, onChange, placeholder = 'Search…', className,
+  value, onChange, placeholder = 'Search…', label, className,
 }) => (
   <div className={cn('relative w-full sm:w-[240px] shrink-0', className)}>
-    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+    <Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
     <input
-      type="text"
+      type="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      aria-label={label ?? placeholder}
       className={cn(
         'w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl',
         'text-[12.5px] text-fg placeholder:text-fg-3 transition-colors',

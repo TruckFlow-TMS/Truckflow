@@ -52,10 +52,14 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
   }, [equipment, activeTab, search, statusFilter]);
 
   const totalPages = Math.ceil(filteredEquipment.length / ITEMS_PER_PAGE) || 1;
+  // Clamped so a result set that shrinks under the current page (narrowed
+  // filter, deleted row) falls back to the last real page instead of slicing
+  // past the end and showing the empty state over rows that do exist.
+  const page = Math.min(currentPage, totalPages);
   const paginatedEquipment = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (page - 1) * ITEMS_PER_PAGE;
     return filteredEquipment.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredEquipment, currentPage]);
+  }, [filteredEquipment, page]);
 
   const kpiData = useMemo(() => {
     const trucks = equipment.filter(e => e.type === 'TRUCK').length;
@@ -211,6 +215,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
           <button
             onClick={() => handleOpenModal(eq)}
             title="Edit"
+            aria-label={`Edit unit ${eq.unitNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
           >
             <Edit2 size={15} />
@@ -218,6 +223,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
           <button
             onClick={() => setDeleteItem(eq)}
             title="Delete"
+            aria-label={`Delete unit ${eq.unitNumber}`}
             className="p-1.5 rounded-ctl text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
           >
             <Trash2 size={15} />
@@ -338,20 +344,20 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-[12px] text-fg-2">
-          <span className="tnum">Page {currentPage} of {totalPages}</span>
+          <span className="tnum">Page {page} of {totalPages}</span>
           <div className="flex gap-2">
             <Button
               variant="secondary" size="sm"
               icon={<ChevronLeft size={13} />}
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(Math.max(1, page - 1))}
             >
               Previous
             </Button>
             <Button
               variant="secondary" size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
             >
               Next <ChevronRight size={13} />
             </Button>

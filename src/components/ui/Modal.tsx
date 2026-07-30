@@ -1,7 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
+
+/** Elements that can hold focus inside the dialog. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), ' +
+  'select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -24,16 +29,63 @@ const SIZES = {
 export const Modal: React.FC<ModalProps> = ({
   isOpen, onClose, title, subtitle, footer, size = 'md', busy = false, children,
 }) => {
-  // Esc closes; body does not scroll behind the modal.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  // Esc closes; Tab is trapped inside the panel; body does not scroll behind.
+  // Without the trap, `aria-modal` hides the page from screen readers while
+  // keyboard focus still walks out into it — the user ends up driving controls
+  // the backdrop is visually covering and the mouse cannot reach.
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy) onClose(); };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (items.length === 0) {
+        // Nothing focusable inside — keep focus on the panel rather than
+        // letting Tab escape to the page behind.
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    // Remember where focus came from so it can be handed back on close.
+    const restoreTo = document.activeElement as HTMLElement | null;
+    // Focus the first control, falling back to the panel itself.
+    const panel = panelRef.current;
+    const firstItem = panel?.querySelector<HTMLElement>(FOCUSABLE);
+    (firstItem ?? panel)?.focus();
+
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      restoreTo?.focus?.();
     };
   }, [isOpen, onClose, busy]);
 
@@ -45,19 +97,21 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={busy ? undefined : onClose}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cn(
           'w-full bg-surface border border-bd rounded-card shadow-lift',
-          'max-h-[90vh] flex flex-col',
+          'max-h-[90vh] flex flex-col focus:outline-none',
           SIZES[size],
         )}
       >
         <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-bd shrink-0">
           <div>
-            <h2 className="text-[15px] font-semibold text-fg tracking-tight">{title}</h2>
+            <h2 id={titleId} className="text-[15px] font-semibold text-fg tracking-tight">{title}</h2>
             {subtitle && <p className="text-[12px] text-fg-2 mt-0.5">{subtitle}</p>}
           </div>
           <button

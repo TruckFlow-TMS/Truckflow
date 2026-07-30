@@ -21,9 +21,10 @@ export function Header({ onOpenCreateLoad }: HeaderProps) {
   return (
     <header className="h-[54px] shrink-0 bg-topbar border-b border-bd flex items-center gap-3.5 px-4 select-none">
       <div className="relative flex-1 max-w-[340px]">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
+        <Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
         <input
-          type="text"
+          type="search"
+          aria-label="Search loads, drivers, brokers"
           placeholder="Search loads, drivers, brokers…"
           className="w-full h-[33px] pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
         />
