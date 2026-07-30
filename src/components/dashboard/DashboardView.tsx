@@ -9,7 +9,6 @@ import {
   Truck,
   DollarSign,
   Clock,
-  AlertTriangle,
   ShieldCheck,
   ArrowRight,
   Plus,
@@ -43,12 +42,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isAdmin = currentUser?.roleName === 'Admin' || currentUser?.isOwner;
 
   const now = new Date();
-  const warningUsers = users.filter((u) => {
-    if (!u.expirationDate) return false;
-    const diffTime = new Date(u.expirationDate).getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 && diffDays <= 7;
-  });
 
   const activeLoadsList = loads.filter((l) => ['OPEN', 'DISPATCHED', 'IN_TRANSIT'].includes(l.status));
   const activeLoadsCount = activeLoadsList.length;
@@ -89,32 +82,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }
       />
 
-      {/* Admin Expiration Warning Banners */}
-      {isAdmin && warningUsers.length > 0 && (
-        <div className="space-y-2">
-          {warningUsers.map((u) => {
-            const diffTime = new Date(u.expirationDate!).getTime() - now.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return (
-              <div
-                key={u.id}
-                className="p-3.5 rounded-card bg-warn-bg border border-bd text-[12.5px] flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <AlertTriangle size={18} className="text-warn shrink-0" />
-                  <div className="text-fg">
-                    <span className="font-semibold">{u.name} ({u.username})</span> access expires in{' '}
-                    <span className="font-semibold tnum text-warn">{diffDays} days</span>.
-                  </div>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => setActiveTab('settings')}>
-                  Manage roster
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* 5 Executive KPI Tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

@@ -1,40 +1,64 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Search, Moon, Sun, Bell, LogOut, ChevronDown, PanelLeftClose, PanelLeftOpen,
+  AlertTriangle, ShieldCheck, X, Settings,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../ui/Avatar';
+import { User, Driver } from '../../types/tms';
+
+export interface Notification {
+  id: string;
+  type: 'warning' | 'danger' | 'info';
+  title: string;
+  message: string;
+  action?: { label: string; onClick: () => void };
+  read: boolean;
+  timestamp: Date;
+}
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  notifications?: Notification[];
+  onDismissNotification?: (id: string) => void;
+  onMarkAllRead?: () => void;
 }
 
-export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
+export function Header({
+  sidebarCollapsed,
+  onToggleSidebar,
+  notifications = [],
+  onDismissNotification,
+  onMarkAllRead,
+}: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { currentUser, logout } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notiOpen, setNotiOpen] = useState(false);
+
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstItemRef = useRef<HTMLButtonElement>(null);
+  const notiWrapRef = useRef<HTMLDivElement>(null);
 
-  // Escape and outside-click close the menu. Escape returns focus to the
-  // trigger — without that, closing by keyboard drops focus onto <body> and
-  // the next Tab restarts from the top of the page.
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Escape and outside-click close menus
   useEffect(() => {
-    if (!menuOpen) return;
-
-    firstItemRef.current?.focus();
-
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      setMenuOpen(false);
-      triggerRef.current?.focus();
+      if (menuOpen) {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+      if (notiOpen) setNotiOpen(false);
     };
     const onPointerDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (menuOpen && !wrapRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (notiOpen && !notiWrapRef.current?.contains(e.target as Node)) setNotiOpen(false);
     };
 
     document.addEventListener('keydown', onKey);
@@ -43,6 +67,10 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onPointerDown);
     };
+  }, [menuOpen, notiOpen]);
+
+  useEffect(() => {
+    if (menuOpen) firstItemRef.current?.focus();
   }, [menuOpen]);
 
   const iconBtn =
@@ -50,10 +78,21 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
     'flex items-center justify-center relative transition-colors hover:text-fg hover:bg-surface-2 ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
+  const notiIcon = (type: string) => {
+    if (type === 'danger') return <ShieldCheck size={14} className="text-danger shrink-0" />;
+    if (type === 'warning') return <AlertTriangle size={14} className="text-warn shrink-0" />;
+    return <Bell size={14} className="text-accent shrink-0" />;
+  };
+
+  const notiBg = (type: string) => {
+    if (type === 'danger') return 'bg-danger-bg border-danger/20';
+    if (type === 'warning') return 'bg-warn-bg border-warn/20';
+    return 'bg-accent-weak border-accent/20';
+  };
+
   return (
     <header className="h-[54px] shrink-0 bg-topbar border-b border-bd flex items-center gap-3.5 px-4 select-none">
-      {/* Sits ahead of everything else: it acts on the panel to its left, so
-          it reads as belonging to that edge rather than to the toolbar. */}
+      {/* Sidebar toggle */}
       <button
         onClick={onToggleSidebar}
         aria-expanded={!sidebarCollapsed}
@@ -64,7 +103,8 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
         {sidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
       </button>
 
-      <div className="relative flex-1 max-w-[340px]">
+      {/* Search bar — expanded to fill available space */}
+      <div className="relative flex-1">
         <Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
         <input
           type="search"
@@ -74,13 +114,101 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
         />
       </div>
 
-      {/* Everything else sits together on the right. */}
-      <div className="ml-auto flex items-center gap-2.5">
-        <button className={iconBtn} aria-label="Notifications">
-          <Bell size={15} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger ring-2 ring-surface" />
-        </button>
+      {/* Right-side actions */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {/* Notification bell */}
+        <div ref={notiWrapRef} className="relative">
+          <button
+            className={iconBtn}
+            aria-label="Notifications"
+            onClick={() => setNotiOpen((o) => !o)}
+          >
+            <Bell size={15} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 flex items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white ring-2 ring-topbar">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
 
+          {/* Notification dropdown */}
+          {notiOpen && (
+            <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-[360px] rounded-card bg-surface border border-bd shadow-lift overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-bd">
+                <h3 className="text-[13px] font-semibold text-fg">Notifications</h3>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={onMarkAllRead}
+                      className="text-[11px] text-accent hover:underline font-medium"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notification list */}
+              <div className="max-h-[360px] overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <Bell size={24} className="mx-auto text-fg-3 mb-2" />
+                    <p className="text-[12.5px] text-fg-3">No notifications</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`px-3.5 py-3 border-b border-bd last:border-b-0 transition-colors ${
+                        n.read ? 'opacity-60' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 w-7 h-7 rounded-ctl flex items-center justify-center border ${notiBg(n.type)}`}>
+                          {notiIcon(n.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-semibold text-fg truncate">{n.title}</p>
+                            {onDismissNotification && (
+                              <button
+                                onClick={() => onDismissNotification(n.id)}
+                                className="text-fg-3 hover:text-fg transition-colors shrink-0"
+                                aria-label="Dismiss"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11.5px] text-fg-2 mt-0.5 leading-relaxed">{n.message}</p>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-[10px] text-fg-3 tnum">
+                              {n.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {n.action && (
+                              <button
+                                onClick={() => {
+                                  n.action!.onClick();
+                                  setNotiOpen(false);
+                                }}
+                                className="text-[11px] text-accent font-semibold hover:underline"
+                              >
+                                {n.action.label}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
           className={iconBtn}
@@ -90,6 +218,7 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
         </button>
 
+        {/* Account menu */}
         <div ref={wrapRef} className="relative">
           <button
             ref={triggerRef}
@@ -113,8 +242,6 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
               aria-label="Account"
               className="absolute right-0 top-[calc(100%+6px)] z-50 w-[212px] p-1 rounded-card bg-surface border border-bd shadow-lift"
             >
-              {/* Identity moved here from the sidebar footer, so the name still
-                  has a home once the menu is the only place it appears. */}
               <div className="px-2.5 py-2 border-b border-bd mb-1">
                 <p className="text-[12px] font-semibold text-fg truncate">{currentUser?.name ?? '—'}</p>
                 <p className="text-[10.5px] text-fg-3 truncate">{currentUser?.email ?? currentUser?.roleName ?? ''}</p>
