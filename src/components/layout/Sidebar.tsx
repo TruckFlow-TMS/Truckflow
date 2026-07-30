@@ -124,15 +124,6 @@ export function Sidebar({ activeTab, setActiveTab, loadCount = 0 }: SidebarProps
           </React.Fragment>
         ))}
       </nav>
-
-      {/* Footer: a live number beats a static "Tenant Active" label */}
-      <div className="mt-2 p-2.5 rounded-ctl bg-white/[0.05] border border-side-bd/[0.08]">
-        <p className="text-[9.5px] uppercase tracking-[0.08em] text-side-lab">Signed in as</p>
-        <p className="text-[12px] font-semibold text-white/90 mt-0.5 truncate">
-          {currentUser?.name ?? '—'}
-        </p>
-        <p className="text-[10.5px] text-side-lab truncate">{currentUser?.roleName ?? ''}</p>
-      </div>
     </aside>
   );
 }

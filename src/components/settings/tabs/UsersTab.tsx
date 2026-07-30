@@ -5,7 +5,7 @@ import { mockStore } from '../../../services/mockStore';
 import { useToast } from '../../ui/Toast';
 import { ConfirmModal } from '../../ui/ConfirmModal';
 import {
-  Button, Input, Select, Modal, DataTable, Badge, Avatar,
+  Button, Input, PasswordInput, Select, Modal, DataTable, Badge, Avatar,
   StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
   statusTone, humanizeStatus,
 } from '../../ui';
@@ -62,6 +62,10 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<User>>({});
+  // Held outside formData because `User` carries no password — the store hashes
+  // it server-side and never returns one, so it must not round-trip through the
+  // record being edited.
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -110,6 +114,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
   }, [users]);
 
   const handleOpenModal = (user?: User) => {
+    setPassword('');
     if (user) {
       setEditItem(user);
       setFormData(user);
@@ -127,6 +132,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
     setShowModal(false);
     setEditItem(null);
     setFormData({});
+    setPassword('');
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -139,7 +145,11 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
         await mockStore.updateUser(editItem.id, formData, currentUser);
         showToast('success', 'User updated successfully');
       } else {
-        await mockStore.createUser(formData as any, currentUser);
+        // The dialog no longer asks for a handle — the full name is the display
+        // identity and the email is the credential — but the store still keys
+        // uniqueness on `username`, so it comes from the email's local part.
+        const username = (formData.email || '').split('@')[0].toLowerCase();
+        await mockStore.createUser({ ...formData, username, password } as any, currentUser);
         showToast('success', 'User created successfully');
       }
       fetchUsers();
@@ -462,11 +472,14 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
             value={formData.email || ''}
             onChange={e => setFormData({ ...formData, email: e.target.value })}
           />
-          <Input
-            label="Username*"
-            required
-            value={formData.username || ''}
-            onChange={e => setFormData({ ...formData, username: e.target.value })}
+          <PasswordInput
+            label={editItem ? 'New password' : 'Password*'}
+            autoComplete="new-password"
+            required={!editItem}
+            placeholder={editItem ? '••••••••' : 'Set an initial password'}
+            hint={editItem ? 'Leave blank to keep the current password' : undefined}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
           />
           <Select
             label="Role*"

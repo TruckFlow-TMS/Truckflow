@@ -10,6 +10,8 @@ export { StatCard } from './StatCard';
 export type { StatCardProps } from './StatCard';
 export { Input, FieldShell, FIELD_CLASS } from './Input';
 export type { InputProps, FieldShellProps } from './Input';
+export { PasswordInput } from './PasswordInput';
+export type { PasswordInputProps } from './PasswordInput';
 export { Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 export { Textarea } from './Textarea';

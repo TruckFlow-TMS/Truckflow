@@ -8,6 +8,16 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), ' +
   'select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Preferred landing spot on open. The first focusable element is the header's
+ * close button, which is a poor place to arrive in a form dialog — the point of
+ * opening it is to type. A data entry control is the better target when the
+ * dialog has one; confirmations have none and keep the close button, which is
+ * also the least destructive choice for them.
+ */
+const FIRST_FIELD =
+  'input:not([disabled]), textarea:not([disabled]), select:not([disabled])';
+
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +46,34 @@ export const Modal: React.FC<ModalProps> = ({
   // Without the trap, `aria-modal` hides the page from screen readers while
   // keyboard focus still walks out into it — the user ends up driving controls
   // the backdrop is visually covering and the mouse cannot reach.
+  // Kept apart from the key handler below on purpose. `onClose` is an inline
+  // arrow at almost every call site, so it gets a fresh identity on every
+  // render of the parent — which means every keystroke in a field. Bundled
+  // together, that re-ran this effect mid-typing: the cleanup handed focus back
+  // to the trigger and the setup grabbed it again for the first control, so the
+  // caret jumped to the close button on each character. Depending on `isOpen`
+  // alone pins focus work to open and close, where it belongs.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Remember where focus came from so it can be handed back on close.
+    const restoreTo = document.activeElement as HTMLElement | null;
+    // First field, else first focusable, else the panel itself.
+    const panel = panelRef.current;
+    const target =
+      panel?.querySelector<HTMLElement>(FIRST_FIELD) ??
+      panel?.querySelector<HTMLElement>(FOCUSABLE);
+    (target ?? panel)?.focus();
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      restoreTo?.focus?.();
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -72,21 +110,7 @@ export const Modal: React.FC<ModalProps> = ({
     };
 
     document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    // Remember where focus came from so it can be handed back on close.
-    const restoreTo = document.activeElement as HTMLElement | null;
-    // Focus the first control, falling back to the panel itself.
-    const panel = panelRef.current;
-    const firstItem = panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (firstItem ?? panel)?.focus();
-
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-      restoreTo?.focus?.();
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [isOpen, onClose, busy]);
 
   if (!isOpen) return null;

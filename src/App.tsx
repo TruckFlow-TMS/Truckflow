@@ -98,7 +98,7 @@ export const AppContent: React.FC = () => {
       {/* Main Right Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header Bar */}
-        <Header onOpenCreateLoad={() => setShowCreateLoadModal(true)} />
+        <Header />
 
         {/* Main View Area */}
         <main className="flex-1 p-5 overflow-y-auto w-full">
