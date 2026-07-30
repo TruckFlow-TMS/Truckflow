@@ -89,6 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           label="Active loads"
           value={String(activeLoadsCount)}
           sub={<><span className="text-accent font-semibold">{inTransitCount} in transit</span> • {dispatchedCount} dispatched</>}
+          onClick={() => setActiveTab('loads')}
         />
 
         <StatCard
@@ -97,6 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           value={`$${(grossRevenueMinor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
           sub={`Across ${loads.length} loads`}
           spark={loads.slice(-8).map((l) => l.rateMinor)}
+          onClick={() => setActiveTab('invoices')}
         />
 
         <StatCard
@@ -105,18 +107,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           label="On-time delivery"
           value="98.4%"
           sub="Target >95% SLA"
+          onClick={() => setActiveTab('reports')}
         />
 
         <StatCard
           label="Unassigned loads"
           value={String(unassignedLoadsCount)}
           sub={unassignedLoadsCount > 0 ? <span className="text-warn font-semibold">Requires driver assignment</span> : 'All covered'}
+          onClick={() => setActiveTab('dispatch')}
         />
 
         <StatCard
           label="Compliance queue"
           value={String(complianceDrivers.length)}
           sub={complianceDrivers.length > 0 ? <span className="text-danger font-semibold">Expiring credentials</span> : 'All current'}
+          onClick={() => setActiveTab('drivers')}
         />
       </div>
 
@@ -187,15 +192,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Compliance & Audit Alerts */}
           <Card
             header={
-              <h3 className="text-[13.5px] font-semibold text-fg inline-flex items-center gap-2">
-                <ShieldCheck size={15} className="text-danger" />
-                <span>Compliance & audit alerts</span>
-              </h3>
+              <div
+                onClick={() => setActiveTab('drivers')}
+                className="flex items-center justify-between gap-3 cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('drivers'); } }}
+              >
+                <h3 className="text-[13.5px] font-semibold text-fg inline-flex items-center gap-2">
+                  <ShieldCheck size={15} className="text-danger" />
+                  <span>Compliance & audit alerts</span>
+                </h3>
+                <span className="text-[11px] text-accent font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  View all &gt;
+                </span>
+              </div>
             }
           >
             <div className="space-y-2.5">
               {drivers.slice(0, 3).map((drv) => (
-                <div key={drv.id} className="p-3 rounded-ctl bg-surface-2 border border-bd space-y-1.5">
+                <div
+                  key={drv.id}
+                  onClick={() => setActiveTab('drivers')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('drivers'); } }}
+                  className="p-3 rounded-ctl bg-surface-2 border border-bd space-y-1.5 cursor-pointer transition-all duration-200 hover:border-accent/40 hover:shadow-card active:scale-[0.98]"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <h4 className="text-[12.5px] font-semibold text-fg truncate">{drv.name}</h4>
@@ -223,18 +246,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Audit Stream Card */}
           <Card
             header={
-              <div className="flex items-center justify-between gap-3">
+              <div
+                onClick={() => setActiveTab('settings')}
+                className="flex items-center justify-between gap-3 cursor-pointer group"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('settings'); } }}
+              >
                 <h3 className="text-[13.5px] font-semibold text-fg inline-flex items-center gap-2">
                   <Lock size={14} className="text-accent" />
                   <span>Append-only audit stream</span>
                 </h3>
-                <span className="text-[10.5px] font-semibold text-fg-3">RLS protected</span>
+                <span className="text-[10.5px] font-semibold text-fg-3 group-hover:text-accent transition-colors">
+                  RLS protected
+                </span>
               </div>
             }
           >
             <div className="space-y-2.5">
               {auditLogs.slice(0, 4).map((log) => (
-                <div key={log.id} className="p-3 rounded-ctl bg-surface-2 border border-bd space-y-1">
+                <div
+                  key={log.id}
+                  onClick={() => setActiveTab('settings')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('settings'); } }}
+                  className="p-3 rounded-ctl bg-surface-2 border border-bd space-y-1 cursor-pointer transition-all duration-200 hover:border-accent/40 hover:shadow-card active:scale-[0.98]"
+                >
                   <div className="flex items-center justify-between text-[10.5px] text-fg-3 tnum">
                     <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
                     <span className="text-accent font-semibold">{log.actorName}</span>

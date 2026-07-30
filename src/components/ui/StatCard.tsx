@@ -11,6 +11,7 @@ export interface StatCardProps {
   /** ring only: 0-100 */
   ringPct?: number;
   className?: string;
+  onClick?: () => void;
 }
 
 function sparkPath(values: number[], w = 200, h = 30): string {
@@ -28,18 +29,24 @@ function sparkPath(values: number[], w = 200, h = 30): string {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
-  label, value, sub, variant = 'default', spark, ringPct, className,
+  label, value, sub, variant = 'default', spark, ringPct, className, onClick,
 }) => {
   const hero = variant === 'hero';
   const d = hero && spark ? sparkPath(spark) : '';
+  const interactive = !!onClick;
 
   return (
     <div
+      onClick={onClick}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } } : undefined}
       className={cn(
-        'rounded-card border p-3.5 relative overflow-hidden',
+        'rounded-card border p-3.5 relative overflow-hidden transition-all duration-200',
         hero
           ? 'bg-accent-grad border-transparent shadow-hero pb-6'
           : 'bg-surface border-bd shadow-card',
+        interactive && 'cursor-pointer hover:shadow-lift hover:scale-[1.02] hover:border-accent/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         className,
       )}
     >
