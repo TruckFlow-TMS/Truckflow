@@ -6,10 +6,11 @@ import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge, Avatar,
-  StatCard, EmptyState, statusTone, humanizeStatus,
+  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
+  statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
-import { Users, Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DriversViewProps {
   drivers: Driver[];
@@ -19,15 +20,15 @@ interface DriversViewProps {
 const ITEMS_PER_PAGE = 15;
 
 const STATUS_OPTIONS = [
-  { value: 'All', label: 'All statuses' },
+  { value: 'All', label: 'All' },
   { value: 'AVAILABLE', label: 'Available' },
   { value: 'ON_LOAD', label: 'On load' },
   { value: 'INACTIVE', label: 'Inactive' },
 ];
 
 const TYPE_OPTIONS = [
-  { value: 'All', label: 'All employment types' },
-  { value: 'COMPANY_DRIVER', label: 'Company driver' },
+  { value: 'All', label: 'All types' },
+  { value: 'COMPANY_DRIVER', label: 'Company' },
   { value: 'OWNER_OPERATOR', label: 'Owner operator' },
 ];
 
@@ -307,36 +308,32 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           />
         }
         toolbar={
-          <>
-            <div className="relative w-full sm:w-[240px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search name, phone, or CDL number…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
               />
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <Select
-              value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
-              options={TYPE_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedDrivers.length} of {filteredDrivers.length}
-            </span>
-          </>
+            }
+            extra={
+              <FilterChips
+                label="Filter drivers by employment type"
+                value={typeFilter}
+                onChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}
+                options={TYPE_OPTIONS}
+              />
+            }
+            meta={`Showing ${paginatedDrivers.length} of ${filteredDrivers.length}`}
+            chips={
+              <FilterChips
+                label="Filter drivers by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuditLogEntry } from '../../../types/tms';
 import { mockStore } from '../../../services/mockStore';
-import { DataTable, EmptyState } from '../../ui';
+import { DataTable, EmptyState, FilterBar, FilterSearch } from '../../ui';
 import type { Column } from '../../ui';
-import { Search, ScrollText } from 'lucide-react';
+import { ScrollText } from 'lucide-react';
 
 export const AuditTab: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -77,16 +77,16 @@ export const AuditTab: React.FC = () => {
           />
         }
         toolbar={
-          <div className="relative w-full sm:w-[280px]">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-            <input
-              type="text"
-              value={auditSearch}
-              onChange={(e) => setAuditSearch(e.target.value)}
-              placeholder="Search actor name or action…"
-              className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
-            />
-          </div>
+          <FilterBar
+            search={
+              <FilterSearch
+                value={auditSearch}
+                onChange={setAuditSearch}
+                placeholder="Search actor name or action…"
+                className="sm:w-[280px]"
+              />
+            }
+          />
         }
       />
     </div>

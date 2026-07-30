@@ -6,11 +6,11 @@ import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge, StatCard,
-  EmptyState, statusTone, humanizeStatus,
+  EmptyState, FilterBar, FilterChips, FilterSearch, statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
 import { cn } from '../../lib/cn';
-import { Truck, Search, Plus, Edit2, Trash2, ShieldCheck, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, ShieldCheck, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface FleetViewProps {
   equipment: Equipment[];
@@ -21,7 +21,7 @@ interface FleetViewProps {
 const ITEMS_PER_PAGE = 15;
 
 const STATUS_OPTIONS = [
-  { value: 'All', label: 'All statuses' },
+  { value: 'All', label: 'All' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'MAINTENANCE', label: 'Maintenance' },
   { value: 'OUT_OF_SERVICE', label: 'Out of service' },
@@ -285,52 +285,54 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
           />
         }
         toolbar={
-          <>
-            <div className="flex bg-surface-2 p-1 rounded-ctl border border-bd gap-1">
-              <button
-                className={cn(
-                  'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
-                  activeTab === 'TRUCK' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
-                )}
-                onClick={() => { setActiveTab('TRUCK'); setCurrentPage(1); }}
-              >
-                <ShieldCheck size={13} className="inline -mt-0.5 mr-1" />
-                Trucks ({kpiData.trucks})
-              </button>
-              <button
-                className={cn(
-                  'px-3 py-1.5 rounded-ctl text-[12px] font-semibold transition-colors',
-                  activeTab === 'TRAILER' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
-                )}
-                onClick={() => { setActiveTab('TRAILER'); setCurrentPage(1); }}
-              >
-                <Wrench size={13} className="inline -mt-0.5 mr-1" />
-                Trailers ({kpiData.trailers})
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-[220px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search unit #, VIN, make/model…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
+                className="sm:w-[220px]"
               />
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedEquipment.length} of {filteredEquipment.length}
-            </span>
-          </>
+            }
+            extra={
+              // A segmented control, not a filter: it swaps which table you are
+              // looking at (and its columns), so it stays visually distinct
+              // from the status chips below.
+              <div className="flex bg-surface-2 p-1 rounded-ctl border border-bd gap-1 shrink-0">
+                <button
+                  className={cn(
+                    'px-3 py-1 rounded-ctl text-[12px] font-semibold transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                    activeTab === 'TRUCK' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
+                  )}
+                  onClick={() => { setActiveTab('TRUCK'); setCurrentPage(1); }}
+                >
+                  <ShieldCheck size={13} className="inline -mt-0.5 mr-1" />
+                  Trucks ({kpiData.trucks})
+                </button>
+                <button
+                  className={cn(
+                    'px-3 py-1 rounded-ctl text-[12px] font-semibold transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                    activeTab === 'TRAILER' ? 'bg-accent-grad text-on-hero shadow-btn' : 'text-fg-2 hover:text-fg',
+                  )}
+                  onClick={() => { setActiveTab('TRAILER'); setCurrentPage(1); }}
+                >
+                  <Wrench size={13} className="inline -mt-0.5 mr-1" />
+                  Trailers ({kpiData.trailers})
+                </button>
+              </div>
+            }
+            meta={`Showing ${paginatedEquipment.length} of ${filteredEquipment.length}`}
+            chips={
+              <FilterChips
+                label="Filter equipment by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 

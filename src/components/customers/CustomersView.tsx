@@ -6,10 +6,11 @@ import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge,
-  StatCard, EmptyState, statusTone, humanizeStatus,
+  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
+  statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
-import { Building2, Search, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Building2, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -19,9 +20,9 @@ interface CustomersViewProps {
 const ITEMS_PER_PAGE = 15;
 
 const STATUS_OPTIONS = [
-  { value: 'All', label: 'All statuses' },
-  { value: 'Active', label: 'Active only' },
-  { value: 'Inactive', label: 'Inactive only' },
+  { value: 'All', label: 'All' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Inactive', label: 'Inactive' },
 ];
 
 export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReload }) => {
@@ -274,29 +275,24 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
           />
         }
         toolbar={
-          <>
-            <div className="relative w-full sm:w-[240px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search company name, contact, MC#…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
               />
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedCustomers.length} of {filteredCustomers.length}
-            </span>
-          </>
+            }
+            meta={`Showing ${paginatedCustomers.length} of ${filteredCustomers.length}`}
+            chips={
+              <FilterChips
+                label="Filter accounts by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 

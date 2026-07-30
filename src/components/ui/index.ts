@@ -23,3 +23,5 @@ export { PageHeader } from './PageHeader';
 export type { PageHeaderProps } from './PageHeader';
 export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
+export { FilterBar, FilterChips, FilterSearch } from './FilterBar';
+export type { FilterBarProps, FilterChipsProps, FilterSearchProps, FilterOption } from './FilterBar';

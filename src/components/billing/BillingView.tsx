@@ -5,11 +5,12 @@ import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import {
   Button, Card, Input, Select, Modal, ConfirmModal, PageHeader, DataTable,
-  Badge, StatCard, EmptyState, statusTone, humanizeStatus,
+  Badge, StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
+  statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
 import {
-  Search, Plus, Edit2, Trash2, CheckCircle2, FileText, Ban,
+  Plus, Edit2, Trash2, CheckCircle2, FileText, Ban,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
@@ -23,7 +24,7 @@ interface BillingViewProps {
 const ITEMS_PER_PAGE = 15;
 
 const STATUS_OPTIONS = [
-  { value: 'All', label: 'All statuses' },
+  { value: 'All', label: 'All' },
   { value: 'DRAFT', label: 'Draft' },
   { value: 'ISSUED', label: 'Issued' },
   { value: 'PAID', label: 'Paid' },
@@ -361,29 +362,24 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
           />
         }
         toolbar={
-          <>
-            <div className="relative w-full sm:w-[240px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search invoice #, customer…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
               />
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedInvoices.length} of {filteredInvoices.length}
-            </span>
-          </>
+            }
+            meta={`Showing ${paginatedInvoices.length} of ${filteredInvoices.length}`}
+            chips={
+              <FilterChips
+                label="Filter invoices by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 

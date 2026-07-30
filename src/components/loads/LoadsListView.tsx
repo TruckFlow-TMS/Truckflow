@@ -8,13 +8,12 @@ import { EditLoadModal } from './EditLoadModal';
 import { LoadDetailModal } from './LoadDetailModal';
 import { CreateLoadModal } from './CreateLoadModal';
 import {
-  Button, Input, Select, PageHeader, DataTable, Badge, Avatar,
-  StatCard, EmptyState, statusTone, humanizeStatus,
+  Button, Input, PageHeader, DataTable, Badge, Avatar, StatCard,
+  EmptyState, FilterBar, FilterChips, FilterSearch, statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
-import { cn } from '../../lib/cn';
 import {
-  Package, Search, Plus, FileText, Eye, Edit2, Trash2,
+  Package, Plus, FileText, Eye, Edit2, Trash2,
   ChevronLeft, ChevronRight, ArrowRight,
 } from 'lucide-react';
 
@@ -216,16 +215,21 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     },
   ];
 
-  const STATUS_OPTIONS = [
-    { value: 'ALL', label: 'All statuses' },
-    { value: 'OPEN', label: 'Open' },
-    { value: 'DISPATCHED', label: 'Dispatched' },
-    { value: 'IN_TRANSIT', label: 'In transit' },
-    { value: 'DELIVERED', label: 'Delivered' },
-    { value: 'INVOICED', label: 'Invoiced' },
-    { value: 'PAID', label: 'Paid' },
-    { value: 'CANCELLED', label: 'Cancelled' },
-  ];
+  // Counts come off the unfiltered set so a chip always shows how much it
+  // would return, not how much survived the filter currently applied.
+  const STATUS_OPTIONS = useMemo(() => {
+    const count = (status: string) => loads.filter((l) => l.status === status).length;
+    return [
+      { value: 'ALL', label: 'All', count: loads.length },
+      { value: 'OPEN', label: 'Open', count: count('OPEN') },
+      { value: 'DISPATCHED', label: 'Dispatched', count: count('DISPATCHED') },
+      { value: 'IN_TRANSIT', label: 'In transit', count: count('IN_TRANSIT') },
+      { value: 'DELIVERED', label: 'Delivered', count: count('DELIVERED') },
+      { value: 'INVOICED', label: 'Invoiced', count: count('INVOICED') },
+      { value: 'PAID', label: 'Paid', count: count('PAID') },
+      { value: 'CANCELLED', label: 'Cancelled', count: count('CANCELLED') },
+    ];
+  }, [loads]);
 
   // Action Handlers
   const handleConfirmDelete = async () => {
@@ -303,42 +307,43 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           />
         }
         toolbar={
-          <>
-            <div className="relative w-full sm:w-[240px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearchQuery(v); setCurrentPage(1); }}
                 placeholder="Search load, broker, driver…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
               />
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-8 w-auto tnum"
-            />
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-8 w-auto tnum"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedLoads.length} of {filteredLoads.length}
-            </span>
-          </>
+            }
+            extra={
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  aria-label="Pickup from"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-8 w-auto tnum"
+                />
+                <span className="text-[11.5px] text-fg-3">to</span>
+                <Input
+                  type="date"
+                  aria-label="Pickup until"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-8 w-auto tnum"
+                />
+              </div>
+            }
+            meta={`Showing ${paginatedLoads.length} of ${filteredLoads.length}`}
+            chips={
+              <FilterChips
+                label="Filter loads by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 

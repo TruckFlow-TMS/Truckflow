@@ -6,12 +6,13 @@ import { useToast } from '../../ui/Toast';
 import { ConfirmModal } from '../../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, DataTable, Badge, Avatar,
-  StatCard, EmptyState, statusTone, humanizeStatus,
+  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
+  statusTone, humanizeStatus,
 } from '../../ui';
 import type { Column } from '../../ui';
 import { cn } from '../../../lib/cn';
 import {
-  Users as UsersIcon, Search, Plus, Edit2, Trash2, Calendar, Ban, AlertTriangle,
+  Users as UsersIcon, Plus, Edit2, Trash2, Calendar, Ban, AlertTriangle,
 } from 'lucide-react';
 
 interface UsersTabProps {
@@ -23,11 +24,11 @@ const ITEMS_PER_PAGE = 15;
 const ROLE_OPTIONS = [
   { value: 'All', label: 'All roles' },
   { value: 'Admin', label: 'Admin' },
-  { value: 'Dispatcher/User', label: 'Dispatcher/User' },
+  { value: 'Dispatcher/User', label: 'Dispatcher' },
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'All', label: 'All statuses' },
+  { value: 'All', label: 'All' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
 ];
@@ -371,36 +372,32 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
           />
         }
         toolbar={
-          <>
-            <div className="relative w-full sm:w-[240px]">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
-              <input
-                type="text"
+          <FilterBar
+            search={
+              <FilterSearch
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search name, email, username…"
-                className="w-full h-8 pl-8 pr-3 bg-surface-2 border border-bd rounded-ctl text-[12.5px] text-fg placeholder:text-fg-3 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
               />
-            </div>
-
-            <Select
-              value={roleFilter}
-              onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-              options={ROLE_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              options={STATUS_OPTIONS}
-              className="h-8 w-auto"
-            />
-
-            <span className="ml-auto text-[11.5px] text-fg-3 tnum shrink-0">
-              Showing {paginatedUsers.length} of {filteredUsers.length}
-            </span>
-          </>
+            }
+            extra={
+              <FilterChips
+                label="Filter users by role"
+                value={roleFilter}
+                onChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}
+                options={ROLE_OPTIONS}
+              />
+            }
+            meta={`Showing ${paginatedUsers.length} of ${filteredUsers.length}`}
+            chips={
+              <FilterChips
+                label="Filter users by status"
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+                options={STATUS_OPTIONS}
+              />
+            }
+          />
         }
       />
 
