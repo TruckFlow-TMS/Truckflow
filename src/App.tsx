@@ -30,9 +30,22 @@ import {
   User,
 } from './types/tms';
 
+/** Read synchronously at mount so a collapsed reload doesn't flash open. */
+const SIDEBAR_COLLAPSE_KEY = 'nune_tms_sidebar_collapsed';
+
 export const AppContent: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+
+  // Lives here rather than in Sidebar: the Header owns the toggle, so the two
+  // need a common parent to share the flag.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === 'true',
+  );
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   // Application Data States
   const [loads, setLoads] = useState<Load[]>([]);
@@ -93,12 +106,20 @@ export const AppContent: React.FC = () => {
   return (
     <div className="h-screen bg-canvas text-fg flex overflow-hidden selection:bg-accent selection:text-on-accent">
       {/* Left Navigation Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} loadCount={loads.length} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        loadCount={loads.length}
+        collapsed={sidebarCollapsed}
+      />
 
       {/* Main Right Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header Bar */}
-        <Header />
+        <Header
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
+        />
 
         {/* Main View Area */}
         <main className="flex-1 p-5 overflow-y-auto w-full">

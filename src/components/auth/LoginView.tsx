@@ -144,7 +144,7 @@ export function LoginView() {
           <span className="w-9 h-9 rounded-lg bg-accent-grad flex items-center justify-center shadow-btn">
             <Truck size={18} className="text-on-hero" />
           </span>
-          <span className="text-[17px] font-semibold text-fg tracking-tight">Nune Express</span>
+          <span className="text-[17px] font-semibold text-fg tracking-tight">TruckFlow</span>
         </div>
 
         <Card className="p-6" padded={false}>

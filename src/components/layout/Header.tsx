@@ -1,10 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Moon, Sun, Bell, LogOut, ChevronDown } from 'lucide-react';
+import {
+  Search, Moon, Sun, Bell, LogOut, ChevronDown, PanelLeftClose, PanelLeftOpen,
+} from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../ui/Avatar';
 
-export function Header() {
+interface HeaderProps {
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
+}
+
+export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { currentUser, logout } = useAuth();
 
@@ -45,6 +52,18 @@ export function Header() {
 
   return (
     <header className="h-[54px] shrink-0 bg-topbar border-b border-bd flex items-center gap-3.5 px-4 select-none">
+      {/* Sits ahead of everything else: it acts on the panel to its left, so
+          it reads as belonging to that edge rather than to the toolbar. */}
+      <button
+        onClick={onToggleSidebar}
+        aria-expanded={!sidebarCollapsed}
+        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className={iconBtn}
+      >
+        {sidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+      </button>
+
       <div className="relative flex-1 max-w-[340px]">
         <Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none" />
         <input
