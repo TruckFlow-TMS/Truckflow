@@ -292,13 +292,27 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           value={`$${kpis.gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
           sub={`Across ${loads.length} loads`}
           spark={[4, 6, 5, 9, 7, 12, 10, 15]}
+          onClick={() => { setStatusFilter('ALL'); setSearchQuery(''); setCurrentPage(1); }}
         />
-        <StatCard label="Active loads" value={String(kpis.active)} sub="Open, dispatched or in transit" />
-        <StatCard variant="ring" ringPct={kpis.onTime} label="Completed" value={`${kpis.onTime}%`} sub="Delivered or beyond" />
+        <StatCard
+          label="Active loads"
+          value={String(kpis.active)}
+          sub="Open, dispatched or in transit"
+          onClick={() => { setStatusFilter('IN_TRANSIT'); setCurrentPage(1); }}
+        />
+        <StatCard
+          variant="ring"
+          ringPct={kpis.onTime}
+          label="Completed"
+          value={`${kpis.onTime}%`}
+          sub="Delivered or beyond"
+          onClick={() => { setStatusFilter('DELIVERED'); setCurrentPage(1); }}
+        />
         <StatCard
           label="Unassigned"
           value={String(kpis.unassigned)}
           sub={kpis.unassigned > 0 ? <span className="text-warn font-semibold">Needs a driver</span> : 'All covered'}
+          onClick={() => { setStatusFilter('OPEN'); setCurrentPage(1); }}
         />
       </div>
 
@@ -306,6 +320,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
         columns={columns}
         rows={paginatedLoads}
         rowKey={(ld) => ld.id}
+        onRowClick={(ld) => setSelectedDetailLoad(ld)}
         empty={
           <EmptyState
             icon={<Package size={30} strokeWidth={1.5} />}

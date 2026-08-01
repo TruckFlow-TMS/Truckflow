@@ -25,6 +25,7 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STOPS' | 'DOCUMENTS' | 'FINANCIALS' | 'ACTIVITY'>('OVERVIEW');
   const [docType, setDocType] = useState('BOL');
   const [docName, setDocName] = useState('');
+  const [fileObj, setFileObj] = useState<File | null>(null);
   const [isAdvancing, setIsAdvancing] = useState(false);
 
   if (!load) return null;
@@ -47,18 +48,20 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
   const handleUploadDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
+    const fileUrl = fileObj ? URL.createObjectURL(fileObj) : '#';
     await mockStore.uploadDocument(
       load.id,
       {
         type: docType as any,
-        name: docName,
+        name: docName || fileObj?.name || 'Document',
         version: 1,
         uploadedBy: currentUser.name,
-        fileUrl: '#',
+        fileUrl,
       },
       currentUser
     );
     setDocName('');
+    setFileObj(null);
     onReload();
   };
 
@@ -170,30 +173,53 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
       {activeTab === 'DOCUMENTS' && (
         <div className="space-y-5">
           <Card>
-            <form onSubmit={handleUploadDoc} className="flex items-end gap-3">
-              <div className="flex-1">
+            <form onSubmit={handleUploadDoc} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Select
                   label="Document type"
                   value={docType}
                   onChange={e => setDocType(e.target.value)}
                   options={[
                     { value: 'BOL', label: 'Bill of Lading (BOL)' },
-                    { value: 'RATE_CON', label: 'Rate Confirmation' },
                     { value: 'POD', label: 'Proof of Delivery (POD)' },
+                    { value: 'RATE_CON', label: 'Rate Confirmation' },
+                    { value: 'INVOICE_PDF', label: 'Invoice PDF' },
                     { value: 'RECEIPT', label: 'Expense Receipt' },
+                    { value: 'WEIGHT_TICKET', label: 'Weight Ticket' },
                   ]}
                 />
-              </div>
-              <div className="flex-1">
                 <Input
-                  label="File description"
+                  label="File description / Name"
                   required
                   value={docName}
                   onChange={e => setDocName(e.target.value)}
-                  placeholder="e.g. Signed Rate Con"
+                  placeholder="e.g. Signed BOL - Chicago facility"
                 />
               </div>
-              <Button type="submit" icon={<Upload size={14} />}>Upload</Button>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <label className="flex items-center gap-2 px-3 py-1.5 rounded-ctl border border-bd bg-surface-2 hover:bg-surface text-[12px] font-medium cursor-pointer text-fg transition">
+                  <Upload size={14} className="text-accent" />
+                  <span>Choose file from device…</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (!docName) setDocName(file.name);
+                        setFileObj(file);
+                      }
+                    }}
+                  />
+                </label>
+                {fileObj && (
+                  <span className="text-[12px] text-pos font-semibold truncate">
+                    Selected: {fileObj.name}
+                  </span>
+                )}
+                <Button type="submit" icon={<Upload size={14} />}>Upload document</Button>
+              </div>
             </form>
           </Card>
 
@@ -204,7 +230,14 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
                   <p className="text-[13.5px] text-fg font-medium">{doc.name}</p>
                   <p className="text-[11px] text-fg-3 mt-0.5">{doc.type} • Uploaded by {doc.uploadedBy} on {new Date(doc.uploadedAt).toLocaleString()}</p>
                 </div>
-                <button className="text-[12.5px] font-semibold text-accent hover:underline">View document</button>
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[12.5px] font-semibold text-accent hover:underline"
+                >
+                  View document
+                </a>
               </Card>
             )) : <p className="text-[13px] text-fg-3 italic">No documents attached yet.</p>}
           </div>

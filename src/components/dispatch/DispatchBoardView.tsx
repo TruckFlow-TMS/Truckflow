@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Load, LoadStatus, Driver, Equipment } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../ui/Toast';
 import { mockStore } from '../../services/mockStore';
 import {
   Button, Card, Badge, Avatar, PageHeader, EmptyState,
@@ -18,6 +19,8 @@ import {
   FileCheck,
   FileText,
   DollarSign,
+  Upload,
+  Paperclip,
 } from 'lucide-react';
 
 interface DispatchBoardViewProps {
@@ -42,6 +45,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   onReload,
 }) => {
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
   const [viewMode, setViewMode] = useState<'kanban' | 'timeline'>('kanban');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -68,6 +72,39 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
       onReload();
     } catch (err: any) {
       setErrorMessage(err.message || 'Transition guard blocked action');
+    }
+  };
+
+  const getDocTypeForStage = (status: LoadStatus) => {
+    switch (status) {
+      case 'DELIVERED': return 'BOL';
+      case 'DELIVERED_POD': return 'POD';
+      case 'INVOICED': return 'INVOICE_PDF';
+      case 'PAID': return 'RECEIPT';
+      default: return 'BOL';
+    }
+  };
+
+  const handleFileUpload = async (load: Load, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    const docType = getDocTypeForStage(load.status);
+    try {
+      await mockStore.uploadDocument(
+        load.id,
+        {
+          type: docType as any,
+          name: file.name,
+          version: 1,
+          uploadedBy: currentUser.name,
+          fileUrl: URL.createObjectURL(file),
+        },
+        currentUser
+      );
+      showToast('success', `Uploaded ${file.name} to Load #${load.loadNumber}`);
+      onReload();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to upload document.');
     }
   };
 
@@ -197,13 +234,42 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                           )}
                         </div>
 
-                        <div className="pt-2 border-t border-bd flex items-center justify-between">
+                        {/* Attached Documents Chips */}
+                        {ld.documents && ld.documents.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {ld.documents.map((doc) => (
+                              <span
+                                key={doc.id}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-accent-weak text-accent truncate max-w-[130px]"
+                                title={`${doc.name} (${doc.type})`}
+                              >
+                                <Paperclip size={9} />
+                                <span className="truncate">{doc.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-bd flex items-center justify-between gap-1 flex-wrap">
                           <button
                             onClick={() => onSelectLoad(ld)}
                             className="text-[10px] text-fg-3 hover:text-fg transition-colors"
                           >
                             Details
                           </button>
+
+                          {/* Upload File Button for Delivered, Delivered with BOL, Invoice, Paid stages */}
+                          {['DELIVERED', 'DELIVERED_POD', 'INVOICED', 'PAID'].includes(ld.status) && (
+                            <label className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-ctl text-[10px] font-semibold bg-surface border border-bd text-accent hover:bg-surface-2 cursor-pointer transition">
+                              <Upload size={10} />
+                              <span>Upload file</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(ld, e)}
+                              />
+                            </label>
+                          )}
 
                           {/* Stage Transition Buttons */}
                           {ld.status === 'OPEN' && (
