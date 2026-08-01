@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Truck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Input, Button, Card } from '../ui';
+import { Input, PasswordInput, Button, Card } from '../ui';
 
 /**
  * Freight lanes drawn across the backdrop. Coordinates are in the 1440×900
@@ -160,9 +160,9 @@ export function LoginView() {
               placeholder="you@nuneexpress.com"
               required
             />
-            <Input
+            <PasswordInput
               label="Password"
-              type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
