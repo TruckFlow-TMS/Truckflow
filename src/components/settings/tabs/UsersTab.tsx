@@ -353,14 +353,21 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
           label="Registered users"
           value={String(kpiData.total)}
           sub={`${kpiData.active} active · ${kpiData.total - kpiData.active} disabled`}
+          onClick={() => { setRoleFilter('All'); setStatusFilter('All'); setSearch(''); setCurrentPage(1); }}
         />
-        <StatCard label="System administrators" value={String(kpiData.admins)} sub="Full access role" />
+        <StatCard
+          label="System administrators"
+          value={String(kpiData.admins)}
+          sub="Full access role"
+          onClick={() => { setRoleFilter('Admin'); setCurrentPage(1); }}
+        />
         <StatCard
           variant="ring"
           ringPct={kpiData.total ? Math.round((kpiData.active / kpiData.total) * 1000) / 10 : 0}
           label="Active accounts"
           value={`${kpiData.total ? Math.round((kpiData.active / kpiData.total) * 1000) / 10 : 0}%`}
           sub="Currently able to sign in"
+          onClick={() => { setStatusFilter('ACTIVE'); setCurrentPage(1); }}
         />
         <StatCard
           label="Access expiring"
@@ -370,6 +377,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
               ? <span className="text-warn font-semibold">Within 7 days</span>
               : 'No accounts lapsing soon'
           }
+          onClick={() => { setStatusFilter('ACTIVE'); setCurrentPage(1); }}
         />
       </div>
 
@@ -377,6 +385,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
         columns={columns}
         rows={paginatedUsers}
         rowKey={(u) => u.id}
+        onRowClick={(u) => handleOpenModal(u)}
         empty={
           <EmptyState
             icon={<UsersIcon size={30} strokeWidth={1.5} />}

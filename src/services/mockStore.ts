@@ -425,7 +425,18 @@ class MockStore {
     const idx = this.roles.findIndex(r => r.id === role.id);
     if (idx >= 0) this.roles[idx] = role; else this.roles.push(role);
     this.save(K.ROLES, this.roles);
+    this.audit(actor, 'roles.update', 'Role', role.id, `${idx >= 0 ? 'Updated' : 'Created'} role ${role.name}`);
     return role;
+  }
+
+  async deleteRole(roleId: string, actor: User): Promise<void> {
+    await this.sim();
+    const r = this.roles.find(x => x.id === roleId);
+    if (!r) throw new Error('Role not found');
+    if (r.isSystemOwner) throw new Error('Cannot delete system owner role');
+    this.roles = this.roles.filter(x => x.id !== roleId);
+    this.save(K.ROLES, this.roles);
+    this.audit(actor, 'roles.delete', 'Role', roleId, `Deleted role ${r.name}`);
   }
 
   resetToDefaults() {

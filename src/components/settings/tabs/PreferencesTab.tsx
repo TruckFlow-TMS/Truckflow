@@ -1,8 +1,28 @@
-import React from 'react';
-import { Card } from '../../ui';
-import { Building } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, Input, Button } from '../../ui';
+import { useToast } from '../../ui/Toast';
+import { Building, Save, ShieldCheck, CreditCard } from 'lucide-react';
 
 export const PreferencesTab: React.FC = () => {
+  const { showToast } = useToast();
+  const [companyName, setCompanyName] = useState('Nune Express LLC');
+  const [mcNumber, setMcNumber] = useState('MC-1094829');
+  const [dotNumber, setDotNumber] = useState('USDOT-3849201');
+  const [adminEmail, setAdminEmail] = useState('admin@nuneexpress.com');
+  const [phone, setPhone] = useState('(800) 555-0199');
+  const [factoringPartner, setFactoringPartner] = useState('RTS Financial (Recourse Factoring)');
+  const [factoringRate, setFactoringRate] = useState('2.0');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      showToast('success', 'Company profile preferences saved successfully');
+    }, 400);
+  };
+
   return (
     <Card
       header={
@@ -12,32 +32,73 @@ export const PreferencesTab: React.FC = () => {
         </div>
       }
     >
-      <div className="space-y-6 text-[12.5px] text-fg-2">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-surface-2 p-4 rounded-ctl border border-bd">
-          <div>
-            <span className="text-[10.5px] text-fg-3 uppercase font-semibold tracking-wide">Company legal name</span>
-            <p className="font-semibold text-fg text-[13.5px] mt-0.5">Nune Express LLC</p>
-          </div>
-          <div>
-            <span className="text-[10.5px] text-fg-3 uppercase font-semibold tracking-wide">Tenant identification ID</span>
-            <p className="font-semibold text-accent tnum text-[12.5px] mt-0.5">tenant-nune-express</p>
-          </div>
-          <div>
-            <span className="text-[10.5px] text-fg-3 uppercase font-semibold tracking-wide">Primary admin email</span>
-            <p className="text-fg-2 text-[12.5px] mt-0.5 tnum">admin@nuneexpress.com</p>
+      <form onSubmit={handleSave} className="space-y-6 text-[12.5px] text-fg-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            label="Company legal name"
+            required
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+          />
+          <Input
+            label="MC Number"
+            value={mcNumber}
+            onChange={(e) => setMcNumber(e.target.value)}
+            className="tnum"
+          />
+          <Input
+            label="USDOT Number"
+            value={dotNumber}
+            onChange={(e) => setDotNumber(e.target.value)}
+            className="tnum"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Primary admin email"
+            type="email"
+            required
+            value={adminEmail}
+            onChange={(e) => setAdminEmail(e.target.value)}
+          />
+          <Input
+            label="Primary phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="tnum"
+          />
+        </div>
+
+        <div className="pt-3 border-t border-bd space-y-3">
+          <h3 className="font-semibold text-fg text-[11.5px] uppercase tracking-wide inline-flex items-center gap-1.5">
+            <CreditCard size={14} className="text-accent" />
+            <span>Factoring partner integration</span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Factoring partner name"
+              value={factoringPartner}
+              onChange={(e) => setFactoringPartner(e.target.value)}
+            />
+            <Input
+              label="Factoring fee rate (%)"
+              type="number"
+              step="0.1"
+              value={factoringRate}
+              onChange={(e) => setFactoringRate(e.target.value)}
+              className="tnum"
+            />
           </div>
         </div>
 
-        <div className="pt-2 border-t border-bd space-y-3">
-          <h3 className="font-semibold text-fg text-[11.5px] uppercase tracking-wide">Factoring partner integration</h3>
-          <div className="p-4 rounded-ctl bg-surface-2 border border-bd space-y-1">
-            <p className="text-fg font-medium">
-              Partner: <span className="text-pos">RTS Financial (Recourse Factoring)</span>
-            </p>
-            <p className="text-fg-3">Factoring rate: 2.0% &bull; Reserve holdback: 3.0%</p>
-          </div>
+        <div className="flex justify-end pt-3 border-t border-bd">
+          <Button type="submit" icon={<Save size={14} />} loading={isSaving}>
+            {isSaving ? 'Saving preferences…' : 'Save Company Profile'}
+          </Button>
         </div>
-      </div>
+      </form>
     </Card>
   );
 };
