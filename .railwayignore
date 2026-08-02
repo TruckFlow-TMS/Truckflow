@@ -1,0 +1,10 @@
+# Frontend-only deploy. Keeping the Python half out of the upload stops Nixpacks
+# from detecting a second provider and building a backend this service never runs.
+app/
+main.py
+generate_models.py
+requirements.txt
+.venv/
+__pycache__/
+*.db
+docs/
