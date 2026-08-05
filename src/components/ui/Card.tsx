@@ -17,7 +17,7 @@ export const Card: React.FC<CardProps> = ({
 }) => (
   <div
     {...rest}
-    className={cn('bg-surface border border-bd rounded-card shadow-card', className)}
+    className={cn('bg-surface border border-bd rounded-card shadow-card transition-all duration-200 hover:border-accent/40', className)}
   >
     {header && <div className="px-4 py-3 border-b border-bd">{header}</div>}
     <div className={cn(padded && 'p-4')}>{children}</div>

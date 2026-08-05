@@ -73,8 +73,8 @@ export function DataTable<T>({
                     }
                   } : undefined}
                   className={cn(
-                    'border-b border-bd last:border-b-0 transition-colors',
-                    onRowClick && 'cursor-pointer hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+                    'border-b border-bd last:border-b-0 transition-all duration-150',
+                    onRowClick && 'cursor-pointer hover:bg-surface-2 hover:border-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
                   )}
                 >
                   {columns.map((c) => (
