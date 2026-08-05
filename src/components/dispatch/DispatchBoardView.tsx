@@ -49,15 +49,18 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
   const [viewMode, setViewMode] = useState<'kanban' | 'timeline'>('kanban');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 7-Stage Lifecycle Columns
+  // Drag & Drop State
+  const [draggingLoadId, setDraggingLoadId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<LoadStatus | null>(null);
+
+  // 6-Stage Lifecycle Columns
   const columns: { status: LoadStatus; title: string }[] = [
-    { status: 'OPEN', title: '1. Planned load' },
-    { status: 'DISPATCHED', title: '2. Trip (dispatched)' },
-    { status: 'IN_TRANSIT', title: '3. In transit' },
+    { status: 'OPEN', title: '1. Open' },
+    { status: 'DISPATCHED', title: '2. Dispatch' },
+    { status: 'IN_TRANSIT', title: '3. Transit' },
     { status: 'DELIVERED', title: '4. Delivered' },
-    { status: 'DELIVERED_POD', title: '5. Delivered with (BOL)' },
-    { status: 'INVOICED', title: '6. Invoice' },
-    { status: 'PAID', title: '7. Paid' },
+    { status: 'INVOICED', title: '5. Invoiced' },
+    { status: 'PAID', title: '6. Paid' },
   ];
 
   const handleAdvanceStatus = async (load: Load, targetStatus: LoadStatus) => {
@@ -69,16 +72,30 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
       } else {
         await mockStore.updateLoadStatus(load.id, targetStatus, currentUser);
       }
+      showToast('success', `Moved Load #${load.loadNumber} to ${humanizeStatus(targetStatus)}`);
       onReload();
     } catch (err: any) {
       setErrorMessage(err.message || 'Transition guard blocked action');
     }
   };
 
+  const handleDrop = async (e: React.DragEvent, targetStatus: LoadStatus) => {
+    e.preventDefault();
+    setDragOverStatus(null);
+    const loadId = e.dataTransfer.getData('text/plain') || draggingLoadId;
+    if (!loadId) return;
+    const targetLoad = loads.find(l => l.id === loadId);
+    if (!targetLoad) return;
+    if (targetLoad.status === targetStatus) return;
+
+    await handleAdvanceStatus(targetLoad, targetStatus);
+    setDraggingLoadId(null);
+  };
+
   const getDocTypeForStage = (status: LoadStatus) => {
     switch (status) {
-      case 'DELIVERED': return 'BOL';
-      case 'DELIVERED_POD': return 'POD';
+      case 'DELIVERED':
+      case 'DELIVERED_POD': return 'BOL';
       case 'INVOICED': return 'INVOICE_PDF';
       case 'PAID': return 'RECEIPT';
       default: return 'BOL';
@@ -112,8 +129,8 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
     <div className="space-y-3.5">
       {/* Board Header & View Switcher */}
       <PageHeader
-        title="Interactive dispatch board (7 stages)"
-        subtitle="Planned load → Trip (dispatched) → In transit → Delivered → Delivered with (BOL) → Invoice → Paid"
+        title="Interactive dispatch board (6 stages)"
+        subtitle="1. Open → 2. Dispatch → 3. Transit → 4. Delivered → 5. Invoiced → 6. Paid (File upload enabled on last 3 stages)"
         actions={
           <>
             <div className="inline-flex items-center gap-1 bg-surface-2 border border-bd rounded-ctl p-1">
@@ -161,38 +178,73 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
         </div>
       )}
 
-      {/* View 1: 7-Stage Kanban Swimlanes */}
+      {/* View 1: 6-Stage Kanban Swimlanes */}
       {viewMode === 'kanban' && (
         <div className="overflow-x-auto pb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 min-w-[1400px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 min-w-[1200px]">
             {columns.map((col) => {
               const colLoads = loads.filter((l) => {
                 if (col.status === 'IN_TRANSIT') {
                   return ['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(l.status);
                 }
+                if (col.status === 'DELIVERED') {
+                  return ['DELIVERED', 'DELIVERED_POD'].includes(l.status);
+                }
                 return l.status === col.status;
               });
 
+              const isDragTarget = dragOverStatus === col.status;
+
               return (
-                <Card
+                <div
                   key={col.status}
-                  padded={false}
-                  className="flex flex-col min-h-[550px]"
-                  header={
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11.5px] font-semibold text-fg truncate pr-1">{col.title}</span>
-                      <span className="text-[10.5px] font-semibold tnum text-fg-3 bg-surface-2 border border-bd rounded-full px-2 py-0.5 shrink-0">
-                        {colLoads.length}
-                      </span>
-                    </div>
-                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverStatus !== col.status) setDragOverStatus(col.status);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDragOverStatus(null);
+                    }
+                  }}
+                  onDrop={(e) => handleDrop(e, col.status)}
+                  className="flex-1 flex flex-col"
                 >
-                  <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto">
-                    {colLoads.map((ld) => (
-                      <div
-                        key={ld.id}
-                        className="bg-surface-2 border border-bd hover:border-accent/50 rounded-ctl p-3 transition space-y-2 group"
-                      >
+                  <Card
+                    padded={false}
+                    className={`flex flex-col min-h-[550px] transition-all duration-200 ${
+                      isDragTarget ? 'border-accent ring-2 ring-accent/30 bg-accent-weak/15 shadow-hero' : ''
+                    }`}
+                    header={
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11.5px] font-semibold text-fg truncate pr-1">{col.title}</span>
+                        <span className="text-[10.5px] font-semibold tnum text-fg-3 bg-surface-2 border border-bd rounded-full px-2 py-0.5 shrink-0">
+                          {colLoads.length}
+                        </span>
+                      </div>
+                    }
+                  >
+                    <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto">
+                      {colLoads.map((ld) => (
+                        <div
+                          key={ld.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', ld.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                            setDraggingLoadId(ld.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingLoadId(null);
+                            setDragOverStatus(null);
+                          }}
+                          className={`bg-surface-2 border rounded-ctl p-3 transition space-y-2 group cursor-grab active:cursor-grabbing hover:border-accent/50 ${
+                            draggingLoadId === ld.id
+                              ? 'opacity-40 border-dashed border-accent scale-95 shadow-inner'
+                              : 'border-bd'
+                          }`}
+                        >
                         <div className="flex items-center justify-between gap-2">
                           <span
                             onClick={() => onSelectLoad(ld)}
@@ -258,7 +310,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                             Details
                           </button>
 
-                          {/* Upload File Button for Delivered, Delivered with BOL, Invoice, Paid stages */}
+                          {/* Upload File Button for Delivered, Invoiced, Paid stages */}
                           {['DELIVERED', 'DELIVERED_POD', 'INVOICED', 'PAID'].includes(ld.status) && (
                             <label className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-ctl text-[10px] font-semibold bg-surface border border-bd text-accent hover:bg-surface-2 cursor-pointer transition">
                               <Upload size={10} />
@@ -293,14 +345,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                             </button>
                           )}
 
-                          {ld.status === 'DELIVERED' && (
-                            <button onClick={() => handleAdvanceStatus(ld, 'DELIVERED_POD')} className={stageAction}>
-                              <span>+ BOL</span>
-                              <FileCheck size={11} />
-                            </button>
-                          )}
-
-                          {ld.status === 'DELIVERED_POD' && (
+                          {['DELIVERED', 'DELIVERED_POD'].includes(ld.status) && (
                             <button onClick={() => handleAdvanceStatus(ld, 'INVOICED')} className={stageAction}>
                               <span>Invoice</span>
                               <FileText size={11} />
@@ -331,8 +376,9 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                     )}
                   </div>
                 </Card>
-              );
-            })}
+              </div>
+            );
+          })}
           </div>
         </div>
       )}
