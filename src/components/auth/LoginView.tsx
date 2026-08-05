@@ -140,11 +140,15 @@ export function LoginView() {
       <div className="relative w-full max-w-[380px]">
         {/* Brand sits above the card rather than in its own panel, so the whole
             screen is one column and the tokens carry both themes unaided. */}
-        <div className="flex items-center justify-center gap-2.5 mb-6">
-          <span className="w-9 h-9 rounded-lg bg-accent-grad flex items-center justify-center shadow-btn">
-            <Truck size={18} className="text-on-hero" />
-          </span>
-          <span className="text-[17px] font-semibold text-fg tracking-tight">TruckFlow</span>
+        <div className="flex flex-col items-center justify-center gap-3 mb-6">
+          <div className="relative flex items-center justify-center p-2">
+            <div className="absolute inset-0 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
+            <img
+              src="/logo.png"
+              alt="Nune HQ — Your Trucking Business. One Headquarters."
+              className="relative w-64 sm:w-80 h-auto object-contain filter drop-shadow-2xl"
+            />
+          </div>
         </div>
 
         <Card className="p-6" padded={false}>

@@ -110,17 +110,20 @@ export function Sidebar({ activeTab, setActiveTab, loadCount = 0, collapsed }: S
           collapsed ? 'px-0 justify-center' : 'px-2',
         )}
       >
-        <span className="w-7 h-7 rounded-lg bg-accent-grad flex items-center justify-center shrink-0 shadow-lg shadow-accent/40">
-          <Truck size={15} className="text-white" />
-        </span>
+        <div className="relative shrink-0 w-11 h-11 flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="Nune HQ"
+            className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(249,115,22,0.3)]"
+          />
+        </div>
         <div className={label(collapsed)}>
-          <div className="text-[13.5px] font-semibold text-white tracking-tight truncate">
-            TruckFlow
+          <div className="text-[14px] font-bold text-white tracking-tight truncate flex items-center gap-1">
+            <span>Nune</span>
+            <span className="text-[#F97316] font-extrabold">HQ</span>
           </div>
-          {/* The product is TruckFlow; the second line is the carrier operating
-              in it. It was the raw tenant id, which read as debug output. */}
-          <div className="text-[10px] text-side-lab truncate">
-            Nune Express
+          <div className="text-[9px] text-side-lab truncate tracking-wider font-semibold uppercase">
+            One Headquarters
           </div>
         </div>
       </div>
