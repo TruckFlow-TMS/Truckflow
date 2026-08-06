@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Equipment, Driver } from '../../types/tms';
+import { Equipment, EquipmentStatus, Driver } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
-  Button, Input, Select, Modal, PageHeader, DataTable, Badge, StatCard,
-  EmptyState, FilterBar, FilterChips, FilterSearch, statusTone, humanizeStatus,
+  Button, Input, Select, Modal, PageHeader, DataTable, Badge, StatCard, StatusPill,
+  EmptyState, FilterBar, FilterChips, FilterSearch, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
 import { cn } from '../../lib/cn';
-import { Truck, Plus, Edit2, Trash2, ShieldCheck, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, ShieldCheck, Wrench, ChevronLeft, ChevronRight, Link2, Unlink } from 'lucide-react';
 
 interface FleetViewProps {
   equipment: Equipment[];
@@ -26,6 +26,9 @@ const STATUS_OPTIONS = [
   { value: 'MAINTENANCE', label: 'Maintenance' },
   { value: 'OUT_OF_SERVICE', label: 'Out of service' },
 ];
+
+/** The filter chips carry an extra "All"; the pill menu must not offer it. */
+const SETTABLE_STATUSES = STATUS_OPTIONS.filter(o => o.value !== 'All');
 
 export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onReload }) => {
   const { currentUser } = useAuth();
@@ -78,7 +81,8 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
       setEditItem(null);
       setFormData({
         type: activeTab,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        linkedEquipmentId: undefined,
       });
     }
     setShowModal(true);
@@ -128,6 +132,53 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     }
   };
 
+  // Optimistic-free: the pill shows its own spinner and the reload repaints the
+  // row, so a rejected write never leaves a lie on screen.
+  const handleStatusChange = async (eq: Equipment, status: EquipmentStatus) => {
+    if (!currentUser) return;
+    try {
+      await mockStore.updateEquipmentStatus(eq.id, status, currentUser);
+      showToast('success', `${eq.unitNumber} set to ${humanizeStatus(status)}`);
+      onReload();
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to update status');
+    }
+  };
+
+  const unitById = (id?: string) => (id ? equipment.find(e => e.id === id) : undefined);
+
+  // ─── Truck ↔ trailer pairing (form) ───────────────────────────────────────
+  const formType = formData.type || 'TRUCK';
+  const partnerType = formType === 'TRUCK' ? 'TRAILER' : 'TRUCK';
+
+  /** Every unit of the opposite type, unpaired ones first — those are the
+   *  no-consequence picks, and burying them under taken units is what makes a
+   *  dispatcher unhook the wrong trailer. */
+  const linkCandidates = useMemo(() => {
+    const partnerOf = (eq: Equipment) => equipment.find(e => e.id === eq.linkedEquipmentId);
+    return equipment
+      .filter(e => e.type === partnerType)
+      .map(e => {
+        const holder = partnerOf(e);
+        // A unit already paired to the record being edited is not "taken".
+        const taken = holder && holder.id !== editItem?.id ? holder : undefined;
+        return {
+          value: e.id,
+          label: taken
+            ? `${e.unitNumber} · ${e.makeModel} — linked to ${taken.unitNumber}`
+            : `${e.unitNumber} · ${e.makeModel} — available`,
+          taken: !!taken,
+        };
+      })
+      .sort((a, b) => Number(a.taken) - Number(b.taken) || a.label.localeCompare(b.label));
+  }, [equipment, partnerType, editItem]);
+
+  const linkTarget = unitById(formData.linkedEquipmentId);
+  const stolenFrom = linkTarget && linkTarget.linkedEquipmentId && linkTarget.linkedEquipmentId !== editItem?.id
+    ? unitById(linkTarget.linkedEquipmentId)
+    : undefined;
+  const availableCount = linkCandidates.filter(c => !c.taken).length;
+
   const isInspectionOverdue = (dateString?: string) => {
     if (!dateString) return false;
     const expDate = new Date(dateString);
@@ -164,19 +215,44 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
       {
         key: 'vin',
         header: 'VIN number',
-        width: '16%',
+        width: '14%',
         render: (eq) => <span className="text-fg-2 text-[12px] tnum">{eq.vin}</span>,
       },
       {
         key: 'plate',
         header: 'License plate',
-        width: '10%',
+        width: '9%',
         render: (eq) => <span className="tnum">{eq.licensePlate || '—'}</span>,
+      },
+      {
+        key: 'linked',
+        header: activeTab === 'TRUCK' ? 'Linked trailer' : 'Linked truck',
+        width: '12%',
+        render: (eq) => {
+          const partner = unitById(eq.linkedEquipmentId);
+          if (!partner) {
+            return (
+              <span className="inline-flex items-center gap-1 text-[11.5px] text-fg-3">
+                <Unlink size={12} className="shrink-0" />
+                Not linked
+              </span>
+            );
+          }
+          return (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-weak text-accent"
+              title={`${partner.unitNumber} · ${partner.makeModel}`}
+            >
+              <Link2 size={11} className="shrink-0" />
+              <span className="tnum">{partner.unitNumber}</span>
+            </span>
+          );
+        },
       },
       {
         key: 'inspection',
         header: 'Annual inspection',
-        width: '16%',
+        width: '14%',
         render: (eq) => (
           <>
             <span className="tnum">{eq.inspectionDueDate}</span>
@@ -191,8 +267,15 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
       {
         key: 'status',
         header: 'Status',
-        width: '12%',
-        render: (eq) => <Badge tone={statusTone(eq.status)}>{humanizeStatus(eq.status)}</Badge>,
+        width: '13%',
+        render: (eq) => (
+          <StatusPill
+            value={eq.status}
+            options={SETTABLE_STATUSES}
+            subject={eq.unitNumber}
+            onChange={(next) => handleStatusChange(eq, next as EquipmentStatus)}
+          />
+        ),
       },
     ];
 
@@ -200,7 +283,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
       base.push({
         key: 'driver',
         header: 'Assigned driver',
-        width: '13%',
+        width: '12%',
         render: (eq) => <span className="font-medium">{getDriverName(eq.assignedDriverId)}</span>,
       });
     }
@@ -208,7 +291,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     base.push({
       key: 'actions',
       header: '',
-      width: '8%',
+      width: '7%',
       align: 'right',
       render: (eq) => (
         <div className="flex items-center justify-end gap-0.5">
@@ -233,14 +316,16 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     });
 
     return base;
+    // `equipment` matters here too: the linked column resolves partner units out
+    // of it, so a memo keyed only on the tab would keep painting stale pairings.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, drivers]);
+  }, [activeTab, drivers, equipment]);
 
   return (
     <div className="space-y-3.5">
       <PageHeader
         title="Fleet & asset roster"
-        subtitle="Truck & trailer inventory, VIN numbers, annual inspection dates, & driver assignments."
+        subtitle="Truck & trailer inventory, VIN numbers, annual inspection dates, driver assignments, & truck–trailer pairings."
         actions={
           <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
             Add equipment
@@ -248,17 +333,14 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Three across, not four: the power-unit count is already the first half
+          of the hero card's subline, so a card of its own only repeated it. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard
           variant="hero"
           label="Total fleet assets"
           value={String(kpiData.total)}
           sub={`${kpiData.trucks} power units · ${kpiData.trailers} trailers`}
-        />
-        <StatCard
-          label="Power units (trucks)"
-          value={String(kpiData.trucks)}
-          sub="Tractors on the roster"
         />
         <StatCard
           variant="ring"
@@ -384,8 +466,10 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
           <Select
             label="Equipment type*"
             required
-            value={formData.type || 'TRUCK'}
-            onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+            value={formType}
+            // Flipping the type invalidates any pairing already picked — a
+            // trailer cannot stay hooked to what just became another trailer.
+            onChange={e => setFormData({ ...formData, type: e.target.value as any, linkedEquipmentId: undefined })}
             options={[
               { value: 'TRUCK', label: 'Truck (power unit)' },
               { value: 'TRAILER', label: 'Trailer' },
@@ -439,19 +523,45 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
               { value: 'OUT_OF_SERVICE', label: 'Out of service' },
             ]}
           />
-          {formData.type === 'TRUCK' && (
-            <div className="md:col-span-2">
-              <Select
-                label="Assigned driver"
-                value={formData.assignedDriverId || ''}
-                onChange={e => setFormData({ ...formData, assignedDriverId: e.target.value || undefined })}
-                options={[
-                  { value: '', label: 'Unassigned' },
-                  ...drivers.map(d => ({ value: d.id, label: d.name })),
-                ]}
-              />
-            </div>
+          {formType === 'TRUCK' && (
+            <Select
+              label="Assigned driver"
+              value={formData.assignedDriverId || ''}
+              onChange={e => setFormData({ ...formData, assignedDriverId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...drivers.map(d => ({ value: d.id, label: d.name })),
+              ]}
+            />
           )}
+
+          <div className={cn(formType === 'TRUCK' ? '' : 'md:col-span-2')}>
+            <Select
+              label={formType === 'TRUCK' ? 'Linked trailer' : 'Linked truck'}
+              value={formData.linkedEquipmentId || ''}
+              onChange={e => setFormData({ ...formData, linkedEquipmentId: e.target.value || undefined })}
+              hint={
+                stolenFrom
+                  ? undefined
+                  : linkCandidates.length === 0
+                    ? `No ${partnerType.toLowerCase()}s on the roster yet`
+                    : `${availableCount} of ${linkCandidates.length} available`
+              }
+              options={[
+                { value: '', label: 'Not linked' },
+                ...linkCandidates.map(({ value, label }) => ({ value, label })),
+              ]}
+            />
+            {stolenFrom && (
+              <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-warn">
+                <Link2 size={12} className="shrink-0 mt-px" />
+                <span>
+                  {linkTarget?.unitNumber} is linked to {stolenFrom.unitNumber} right now.
+                  Saving moves it here and leaves {stolenFrom.unitNumber} unlinked.
+                </span>
+              </div>
+            )}
+          </div>
         </form>
       </Modal>
 
@@ -459,7 +569,16 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
         <ConfirmModal
           isOpen={!!deleteItem}
           title="Delete equipment"
-          message={`Are you sure you want to delete ${deleteItem.unitNumber}?`}
+          message={
+            `Deleting unit ${deleteItem.unitNumber} (${deleteItem.makeModel}) removes it from the fleet permanently`
+            + (unitById(deleteItem.linkedEquipmentId)
+              ? ` and unlinks ${unitById(deleteItem.linkedEquipmentId)!.unitNumber}`
+              : '')
+            + '. This action cannot be undone.'
+          }
+          confirmPhrase={deleteItem.unitNumber}
+          confirmNoun="unit number"
+          confirmLabel="Delete unit"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

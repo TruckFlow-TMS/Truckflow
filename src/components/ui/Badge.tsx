@@ -3,7 +3,9 @@ import { cn } from '../../lib/cn';
 
 export type Tone = 'pos' | 'warn' | 'violet' | 'danger' | 'neutral' | 'accent';
 
-const TONES: Record<Tone, string> = {
+/** Tone → tint + text colour. Exported so other status-shaped controls
+ *  (StatusPill) tint from the same table instead of keeping a second copy. */
+export const TONE_CLASS: Record<Tone, string> = {
   pos: 'bg-pos-bg text-pos',
   warn: 'bg-warn-bg text-warn',
   violet: 'bg-violet-bg text-violet',
@@ -11,6 +13,8 @@ const TONES: Record<Tone, string> = {
   neutral: 'bg-neutral-bg text-neutral',
   accent: 'bg-accent-weak text-accent',
 };
+
+const TONES = TONE_CLASS;
 
 /** Map any domain status string to a badge tone. */
 export function statusTone(status: string): Tone {
@@ -44,8 +48,15 @@ export function statusTone(status: string): Tone {
   }
 }
 
+/** Statuses whose stored key does not read well as a label. */
+const STATUS_LABELS: Record<string, string> = {
+  OPEN: 'Unassigned',
+  AVAILABLE: 'Active',
+};
+
 /** Turn IN_TRANSIT into "In transit". */
 export function humanizeStatus(status: string): string {
+  if (STATUS_LABELS[status]) return STATUS_LABELS[status];
   const s = status.replace(/_/g, ' ').toLowerCase();
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

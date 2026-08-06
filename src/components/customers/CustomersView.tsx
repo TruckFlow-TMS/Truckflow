@@ -1,21 +1,29 @@
 import React, { useState, useMemo } from 'react';
-import { Customer } from '../../types/tms';
+import { Customer, Invoice, PaymentOption } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
-  Button, Input, Select, Modal, PageHeader, DataTable, Badge,
-  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
-  statusTone, humanizeStatus,
+  Button, Input, Select, Modal, PageHeader, DataTable,
+  StatCard, TopListCard, StatusPill, EmptyState, FilterBar, FilterChips, FilterSearch,
 } from '../ui';
-import type { Column } from '../ui';
+import type { Column, TopListItem } from '../ui';
 import { Building2, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CustomersViewProps {
   customers: Customer[];
+  invoices: Invoice[];
   onReload: () => void;
 }
+
+/** "$142.5k" beats "$142,500.00" in a quarter-width card. */
+const compactUsd = (minor: number) => {
+  const d = minor / 100;
+  if (d >= 1_000_000) return `$${(d / 1_000_000).toFixed(1)}m`;
+  if (d >= 1_000) return `$${(d / 1_000).toFixed(1)}k`;
+  return `$${Math.round(d)}`;
+};
 
 const ITEMS_PER_PAGE = 15;
 
@@ -25,7 +33,19 @@ const STATUS_OPTIONS = [
   { value: 'Inactive', label: 'Inactive' },
 ];
 
-export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReload }) => {
+const PAYMENT_OPTIONS: { value: PaymentOption; label: string }[] = [
+  { value: 'CHECK', label: 'Check' },
+  { value: 'DEPOSIT', label: 'Deposit' },
+  { value: 'FACTORING', label: 'Factoring' },
+];
+
+const paymentLabel = (v?: PaymentOption) => PAYMENT_OPTIONS.find(o => o.value === v)?.label;
+
+/** Billed but not settled. Drafts are not owed yet and voids never will be. */
+const isOutstanding = (inv: Invoice) =>
+  inv.status !== 'PAID' && inv.status !== 'VOID' && inv.status !== 'DRAFT';
+
+export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoices, onReload }) => {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
 
@@ -41,7 +61,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
-      const matchSearch = (customer.name + ' ' + customer.contactPerson + ' ' + customer.contactEmail + ' ' + (customer.mcNumber||'')).toLowerCase().includes(search.toLowerCase());
+      const haystack = [
+        customer.name, customer.contactPerson, customer.contactEmail,
+        customer.mcNumber, customer.dotNumber,
+      ].filter(Boolean).join(' ');
+      const matchSearch = haystack.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'All' ? true : statusFilter === 'Active' ? customer.isActive : !customer.isActive;
       return matchSearch && matchStatus;
     });
@@ -51,14 +75,53 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
   const kpiData = useMemo(() => {
     const active = customers.filter(c => c.isActive).length;
     const total = customers.length;
-    const activePct = total ? Math.round((active / total) * 1000) / 10 : 0;
     const withMc = customers.filter(c => !!c.mcNumber).length;
-    const terms = customers.filter(c => typeof c.paymentTermsDays === 'number');
-    const avgTerms = terms.length
-      ? Math.round(terms.reduce((sum, c) => sum + (c.paymentTermsDays ?? 0), 0) / terms.length)
-      : 0;
-    return { total, active, activePct, withMc, avgTerms };
+    return { total, active, withMc };
   }, [customers]);
+
+  /**
+   * Accounts carrying a balance, not invoices carrying one — the collections
+   * call is placed per customer, so the number that matters is how many brokers
+   * owe, with the money and the overdue share as the detail underneath.
+   */
+  const unpaid = useMemo(() => {
+    const owed = new Map<string, number>();
+    const overdueKeys = new Set<string>();
+    for (const inv of invoices) {
+      if (!isOutstanding(inv)) continue;
+      const key = inv.customerId || inv.customerName;
+      owed.set(key, (owed.get(key) ?? 0) + (inv.totalMinor - (inv.paidAmountMinor ?? 0)));
+      if (inv.status === 'OVERDUE') overdueKeys.add(key);
+    }
+    const amount = [...owed.values()].reduce((s, v) => s + v, 0);
+    return { accounts: owed.size, amount, overdueAccounts: overdueKeys.size };
+  }, [invoices]);
+
+  /**
+   * Ranked on billed revenue (voids excluded), not collections: it answers "who
+   * is the book actually built on", which is the question that decides where a
+   * rate concession or a credit-limit bump is worth making. Keyed on customerId
+   * with a name fallback so manually-entered invoices still roll up.
+   */
+  const topClients = useMemo(() => {
+    const totals = new Map<string, { name: string; revenue: number }>();
+    for (const inv of invoices) {
+      if (inv.status === 'VOID') continue;
+      const key = inv.customerId || inv.customerName;
+      const prev = totals.get(key);
+      totals.set(key, { name: inv.customerName, revenue: (prev?.revenue ?? 0) + inv.totalMinor });
+    }
+    const ranked = [...totals.entries()].sort((a, b) => b[1].revenue - a[1].revenue);
+    const book = ranked.reduce((sum, [, v]) => sum + v.revenue, 0);
+    const items: TopListItem[] = ranked.slice(0, 5).map(([id, v]) => ({
+      id,
+      label: v.name,
+      value: compactUsd(v.revenue),
+      weight: v.revenue,
+    }));
+    const share = book ? Math.round((items.reduce((s, i) => s + i.weight, 0) / book) * 100) : 0;
+    return { items, share, accounts: ranked.length };
+  }, [invoices]);
 
   const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE) || 1;
   // Clamped so a result set that shrinks under the current page (narrowed
@@ -76,9 +139,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
       setFormData(customer);
     } else {
       setEditItem(null);
+      // New accounts open active; pausing one is a click on the status pill.
       setFormData({
         isActive: true,
-        paymentTermsDays: 30
+        paymentOption: 'CHECK',
       });
     }
     setShowModal(true);
@@ -128,6 +192,19 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
     }
   };
 
+  // Same click-the-pill affordance as the fleet roster: pausing an account is a
+  // one-field change and shouldn't cost a trip through the edit form.
+  const handleActiveChange = async (c: Customer, isActive: boolean) => {
+    if (!currentUser) return;
+    try {
+      await mockStore.updateCustomer(c.id, { isActive }, currentUser);
+      showToast('success', `${c.name} set to ${isActive ? 'Active' : 'Inactive'}`);
+      onReload();
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to update status');
+    }
+  };
+
   const formatCurrency = (minorUnits?: number) => {
     if (minorUnits === undefined) return '$0.00';
     return '$' + (minorUnits / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -135,7 +212,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
 
   const handleCreditLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    setFormData({ ...formData, creditLimitMinor: isNaN(value) ? 0 : Math.round(value * 100) });
+    // Blank clears the field rather than recording a $0 limit — "no limit on
+    // file" and "this broker may not be extended a cent" are not the same note.
+    setFormData({ ...formData, creditLimitMinor: isNaN(value) ? undefined : Math.round(value * 100) });
   };
 
   const columns: Column<Customer>[] = [
@@ -154,45 +233,62 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
       key: 'contact',
       header: 'Contact person',
       width: '14%',
-      render: (c) => <span className="font-medium">{c.contactPerson}</span>,
+      render: (c) => <span className="font-medium">{c.contactPerson || <span className="text-fg-3">—</span>}</span>,
     },
     {
       key: 'phoneEmail',
       header: 'Phone / Email',
       width: '18%',
       render: (c) => (
-        <>
-          <span className="font-medium tnum">{c.contactPhone}</span>
-          <span className="block text-[11px] text-fg-3 mt-px">{c.contactEmail}</span>
-        </>
+        c.contactPhone || c.contactEmail ? (
+          <>
+            <span className="font-medium tnum">{c.contactPhone || '—'}</span>
+            <span className="block text-[11px] text-fg-3 mt-px">{c.contactEmail || '—'}</span>
+          </>
+        ) : <span className="text-fg-3">—</span>
       ),
     },
     {
       key: 'mc',
       header: 'MC / DOT #',
       width: '11%',
-      render: (c) => <span className="text-fg-2 text-[12px] tnum">{c.mcNumber || '—'}</span>,
+      render: (c) => (
+        <>
+          <span className="block text-fg-2 text-[12px] tnum">{c.mcNumber || '—'}</span>
+          <span className="block text-[11px] text-fg-3 mt-px tnum">
+            {c.dotNumber ? `DOT ${c.dotNumber}` : 'No DOT #'}
+          </span>
+        </>
+      ),
     },
     {
       key: 'credit',
       header: 'Credit limit',
       width: '12%',
-      render: (c) => <span className="font-semibold text-pos tnum">{formatCurrency(c.creditLimitMinor)}</span>,
+      render: (c) => (
+        c.creditLimitMinor
+          ? <span className="font-semibold text-pos tnum">{formatCurrency(c.creditLimitMinor)}</span>
+          : <span className="text-fg-3">Not set</span>
+      ),
     },
     {
-      key: 'terms',
-      header: 'Terms',
+      key: 'payment',
+      header: 'Payment',
       width: '9%',
-      render: (c) => <span className="tnum">{c.paymentTermsDays} days</span>,
+      render: (c) => <span>{paymentLabel(c.paymentOption) || <span className="text-fg-3">—</span>}</span>,
     },
     {
       key: 'status',
       header: 'Status',
-      width: '10%',
-      render: (c) => {
-        const status = c.isActive ? 'ACTIVE' : 'INACTIVE';
-        return <Badge tone={statusTone(status)}>{humanizeStatus(status)}</Badge>;
-      },
+      width: '11%',
+      render: (c) => (
+        <StatusPill
+          value={c.isActive ? 'ACTIVE' : 'INACTIVE'}
+          options={[{ value: 'ACTIVE' }, { value: 'INACTIVE' }]}
+          subject={c.name}
+          onChange={(next) => handleActiveChange(c, next === 'ACTIVE')}
+        />
+      ),
     },
     {
       key: 'actions',
@@ -225,8 +321,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
   return (
     <div className="space-y-3.5">
       <PageHeader
-        title="Broker partners & customer accounts"
-        subtitle="Credit limits, payment terms, historical average days-to-pay, & broker ratings."
+        title="Brokers & Customers"
+        subtitle="Authorities, payment options, credit limits, & outstanding balances."
         actions={
           <Button icon={<Plus size={13} />} onClick={() => handleOpenModal()}>
             Add customer / broker
@@ -250,17 +346,28 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
               : 'Every account has an MC number'
           }
         />
-        <StatCard
-          variant="ring"
-          ringPct={kpiData.activePct}
-          label="Active accounts"
-          value={`${kpiData.activePct}%`}
-          sub="Cleared to book freight"
+        <TopListCard
+          label="Top clients by revenue"
+          items={topClients.items}
+          emptyText="No invoices billed yet"
+          sub={
+            topClients.items.length
+              ? `${topClients.share}% of billed revenue across ${topClients.accounts} accounts`
+              : undefined
+          }
         />
         <StatCard
-          label="Average payment terms"
-          value={`${kpiData.avgTerms} days`}
-          sub="Net terms across the book"
+          label="Unpaid customers"
+          value={String(unpaid.accounts)}
+          sub={
+            unpaid.accounts === 0
+              ? 'Every account is settled'
+              : unpaid.overdueAccounts > 0
+                ? <span className="text-danger font-semibold">
+                    {compactUsd(unpaid.amount)} owed · {unpaid.overdueAccounts} overdue
+                  </span>
+                : `${compactUsd(unpaid.amount)} owed, none overdue`
+          }
         />
       </div>
 
@@ -350,60 +457,61 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
             />
           </div>
           <Input
-            label="Contact person*"
+            label="DOT number*"
             required
-            value={formData.contactPerson || ''}
-            onChange={e => setFormData({ ...formData, contactPerson: e.target.value })}
-          />
-          <Input
-            label="Contact email*"
-            required
-            type="email"
-            value={formData.contactEmail || ''}
-            onChange={e => setFormData({ ...formData, contactEmail: e.target.value })}
-          />
-          <Input
-            label="Contact phone*"
-            required
-            value={formData.contactPhone || ''}
-            onChange={e => setFormData({ ...formData, contactPhone: e.target.value })}
+            className="tnum"
+            hint="The authority the account is vetted on"
+            value={formData.dotNumber || ''}
+            onChange={e => setFormData({ ...formData, dotNumber: e.target.value })}
           />
           <Input
             label="MC number"
+            className="tnum"
             value={formData.mcNumber || ''}
             onChange={e => setFormData({ ...formData, mcNumber: e.target.value })}
           />
           <div className="md:col-span-2">
             <Input
-              label="Billing address"
+              label="Billing address*"
+              required
               value={formData.billingAddress || ''}
               onChange={e => setFormData({ ...formData, billingAddress: e.target.value })}
             />
           </div>
           <Input
-            label="Payment terms (days)*"
-            required
-            type="number"
-            value={formData.paymentTermsDays ?? ''}
-            onChange={e => setFormData({ ...formData, paymentTermsDays: Number(e.target.value) })}
+            label="Contact person"
+            value={formData.contactPerson || ''}
+            onChange={e => setFormData({ ...formData, contactPerson: e.target.value })}
           />
           <Input
-            label="Credit limit ($)*"
-            required
-            type="number"
-            step="0.01"
-            value={formData.creditLimitMinor !== undefined ? formData.creditLimitMinor / 100 : ''}
-            onChange={handleCreditLimitChange}
+            label="Contact email"
+            type="email"
+            value={formData.contactEmail || ''}
+            onChange={e => setFormData({ ...formData, contactEmail: e.target.value })}
           />
-          <div className="md:col-span-2 flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="isActive"
-              className="rounded border-bd bg-surface-2 text-accent focus:ring-accent"
-              checked={formData.isActive || false}
-              onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+          <Input
+            label="Contact phone"
+            value={formData.contactPhone || ''}
+            onChange={e => setFormData({ ...formData, contactPhone: e.target.value })}
+          />
+          <Select
+            label="Payment options*"
+            required
+            options={PAYMENT_OPTIONS}
+            value={formData.paymentOption || 'CHECK'}
+            onChange={e => setFormData({ ...formData, paymentOption: e.target.value as PaymentOption })}
+          />
+          <div className="md:col-span-2">
+            <Input
+              label="Credit limit ($)"
+              type="number"
+              step="0.01"
+              min="0"
+              className="tnum"
+              hint="Optional — leave blank if no limit is set"
+              value={formData.creditLimitMinor !== undefined ? formData.creditLimitMinor / 100 : ''}
+              onChange={handleCreditLimitChange}
             />
-            <label htmlFor="isActive" className="text-[13px] text-fg-2 font-medium">Active customer account</label>
           </div>
         </form>
       </Modal>
@@ -412,7 +520,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onReloa
         <ConfirmModal
           isOpen={!!deleteItem}
           title="Delete customer account"
-          message={`Are you sure you want to delete ${deleteItem.name}?`}
+          message={`Deleting ${deleteItem.name} removes the broker record and its credit terms. This action cannot be undone.`}
+          confirmPhrase={deleteItem.name}
+          confirmNoun="customer name"
+          confirmLabel="Delete customer"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

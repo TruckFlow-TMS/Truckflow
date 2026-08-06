@@ -55,7 +55,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
 
   // 6-Stage Lifecycle Columns
   const columns: { status: LoadStatus; title: string }[] = [
-    { status: 'OPEN', title: '1. Open' },
+    { status: 'OPEN', title: '1. Unassigned' },
     { status: 'DISPATCHED', title: '2. Dispatch' },
     { status: 'IN_TRANSIT', title: '3. Transit' },
     { status: 'DELIVERED', title: '4. Delivered' },
@@ -130,7 +130,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
       {/* Board Header & View Switcher */}
       <PageHeader
         title="Interactive dispatch board (6 stages)"
-        subtitle="1. Open → 2. Dispatch → 3. Transit → 4. Delivered → 5. Invoiced → 6. Paid (File upload enabled on last 3 stages)"
+        subtitle="1. Unassigned → 2. Dispatch → 3. Transit → 4. Delivered → 5. Invoiced → 6. Paid (File upload enabled on last 3 stages)"
         actions={
           <>
             <div className="inline-flex items-center gap-1 bg-surface-2 border border-bd rounded-ctl p-1">
@@ -153,7 +153,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
             </div>
 
             <Button icon={<Plus size={13} />} onClick={onOpenCreateLoad}>
-              Book load
+              Build a load
             </Button>
           </>
         }

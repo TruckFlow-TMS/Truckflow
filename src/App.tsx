@@ -32,6 +32,8 @@ import {
 
 /** Read synchronously at mount so a collapsed reload doesn't flash open. */
 const SIDEBAR_COLLAPSE_KEY = 'nune_tms_sidebar_collapsed';
+/** Legacy key — dismissals are no longer persisted, only swept up. */
+const DISMISSED_NOTIS_KEY = 'nune_tms_dismissed_notis';
 
 export const AppContent: React.FC = () => {
   const { currentUser } = useAuth();
@@ -57,13 +59,16 @@ export const AppContent: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
-  // Dismissed notification IDs
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('nune_tms_dismissed_notis');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch { return new Set(); }
-  });
+  // Dismissed notification IDs. In memory only: the alerts are derived from
+  // records that reset on reload, so a dismissal that outlived them would hide
+  // a warning about data the operator is seeing for the first time.
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // Clears dismissals written by an earlier build, which would otherwise sit in
+  // the browser suppressing alerts nothing can undo.
+  useEffect(() => {
+    try { localStorage.removeItem(DISMISSED_NOTIS_KEY); } catch { /* no storage */ }
+  }, []);
   const [readAll, setReadAll] = useState(false);
 
   // Modal States
@@ -187,12 +192,7 @@ export const AppContent: React.FC = () => {
   }, [users, drivers, loads, currentUser, dismissedIds, readAll]);
 
   const handleDismiss = (id: string) => {
-    setDismissedIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      localStorage.setItem('nune_tms_dismissed_notis', JSON.stringify([...next]));
-      return next;
-    });
+    setDismissedIds((prev) => new Set(prev).add(id));
   };
 
   const handleMarkAllRead = () => setReadAll(true);
@@ -265,7 +265,7 @@ export const AppContent: React.FC = () => {
 
           {activeTab === 'fleet' && <FleetView equipment={equipment} drivers={drivers} onReload={reloadData} />}
 
-          {activeTab === 'customers' && <CustomersView customers={customers} onReload={reloadData} />}
+          {activeTab === 'customers' && <CustomersView customers={customers} invoices={invoices} onReload={reloadData} />}
 
           {activeTab === 'invoices' && <BillingView invoices={invoices} loads={loads} customers={customers} onReload={reloadData} />}
 

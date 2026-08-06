@@ -174,14 +174,14 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         name: newCust.name,
         mcNumber: newCust.mcNumber || undefined,
         dotNumber: undefined,
-        contactPerson: newCust.contact,
-        contactEmail: newCust.email,
-        contactPhone: newCust.phone,
+        contactPerson: newCust.contact || undefined,
+        contactEmail: newCust.email || undefined,
+        contactPhone: newCust.phone || undefined,
         billingAddress: [newCust.street, newCust.aptSuite].filter(Boolean).join(', ') || undefined,
         city: newCust.city || undefined,
         state: newCust.state || undefined,
         zip: newCust.zip || undefined,
-        paymentTermsDays: 30,
+        paymentOption: 'CHECK',
         creditLimitMinor: 10000000,
         isActive: true,
         notes: newCust.notes || undefined,
@@ -458,7 +458,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Book & create new load"
+      title="Build a load"
       subtitle="Enter load details, stops, fees, and optional driver assignment."
       size="lg"
       busy={isSubmitting}
@@ -466,7 +466,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
           <Button type="submit" form="create-load-form" icon={<Plus size={14} />} loading={isSubmitting}>
-            {isSubmitting ? 'Booking load…' : 'Confirm & book load'}
+            {isSubmitting ? 'Building load…' : 'Confirm & build load'}
           </Button>
         </>
       }

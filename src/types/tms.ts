@@ -151,6 +151,15 @@ export interface Load {
 export type DriverPayType = 'PER_MILE' | 'FLAT_PERCENT' | 'PER_HOUR';
 export type DriverStatus = 'AVAILABLE' | 'ON_LOAD' | 'INACTIVE';
 export type EmploymentType = 'COMPANY_DRIVER' | 'OWNER_OPERATOR';
+export type CdlEndorsement = 'HAZMAT' | 'TANKER';
+export type DriverDocumentType = 'DRIVER_ID' | 'MEDICAL_CARD';
+
+export interface DriverDocument {
+  type: DriverDocumentType;
+  name: string;
+  fileUrl: string;
+  uploadedAt: string;
+}
 
 export interface Driver {
   id: string;
@@ -158,12 +167,19 @@ export interface Driver {
   name: string;
   email: string;
   phone: string;
-  address?: string;
+  address: string;
+  /** Nine digits, no separators. */
+  socialSecurityNumber: string;
   employmentType: EmploymentType;
+  /** Owner operators only — both optional, since a new O/O may not have filed yet. */
+  businessName?: string;
+  einNumber?: string;
   assignedTruckId?: string;
   assignedTruckNumber?: string;
   cdlNumber: string;
   cdlClass?: string;
+  cdlEndorsements?: CdlEndorsement[];
+  documents?: DriverDocument[];
   cdlExpiration: string;
   medicalCardExpiration: string;
   status: DriverStatus;
@@ -193,6 +209,13 @@ export interface Equipment {
   status: EquipmentStatus;
   assignedDriverId?: string;
   assignedDriverName?: string;
+  /**
+   * Truck ↔ trailer pairing. One-to-one, because a tractor pulls one trailer at
+   * a time and a trailer sits behind one tractor. Stored on BOTH units so either
+   * side can be read without scanning the fleet; mockStore owns the reciprocity
+   * (setting one side always writes the other and breaks any prior pairing).
+   */
+  linkedEquipmentId?: string;
   notes?: string;
   createdAt?: string;
 }
@@ -200,21 +223,26 @@ export interface Equipment {
 // ─────────────────────────────────────────────────────────────────────────────
 // Customer / Broker
 // ─────────────────────────────────────────────────────────────────────────────
+/** How an account settles. */
+export type PaymentOption = 'CHECK' | 'DEPOSIT' | 'FACTORING';
+
 export interface Customer {
   id: string;
   tenantId: string;
   name: string;
   mcNumber?: string;
   dotNumber?: string;
-  contactPerson: string;
-  contactEmail: string;
-  contactPhone: string;
+  /** Optional: plenty of broker accounts are set up from a load tender alone,
+   *  with nothing but a company name and a DOT number to go on. */
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
   billingAddress?: string;
   city?: string;
   state?: string;
   zip?: string;
-  paymentTermsDays: number;
-  creditLimitMinor: number;
+  paymentOption?: PaymentOption;
+  creditLimitMinor?: number;
   averageDaysToPay?: number;
   rating?: number;
   isActive: boolean;

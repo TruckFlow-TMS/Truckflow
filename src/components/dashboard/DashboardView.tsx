@@ -5,6 +5,7 @@ import {
   Button, Card, Badge, Avatar, StatCard, PageHeader, EmptyState,
   statusTone, humanizeStatus,
 } from '../ui';
+import { DateRangePreset, PRESET_LABELS, inRange, parseYmd } from '../../lib/dateRange';
 import {
   Truck,
   DollarSign,
@@ -14,6 +15,19 @@ import {
   Plus,
   Lock,
 } from 'lucide-react';
+
+/**
+ * The dashboard cycles one shared period on click rather than showing the full
+ * chip set the list views use — but the period maths is the same module, so
+ * "this month" here and "this month" on the loads page cover the same days.
+ */
+type Timeframe = Extract<DateRangePreset, 'WEEK' | 'MONTH' | 'YEAR'>;
+
+const TIMEFRAME_ORDER: Timeframe[] = ['WEEK', 'MONTH', 'YEAR'];
+
+/** Loads are dated by when the money is earned: delivery, else pickup, else booking. */
+const loadDate = (l: Load): string | undefined =>
+  l.deliveryDate || l.pickupDate || l.createdAt;
 
 interface DashboardViewProps {
   loads: Load[];
@@ -43,22 +57,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const now = new Date();
 
+  // Gross revenue and net profit share one timeframe — clicking either card
+  // cycles both through weekly → monthly → yearly.
+  const [timeframe, setTimeframe] = React.useState<Timeframe>('MONTH');
+  const cycleTimeframe = () =>
+    setTimeframe((tf) => TIMEFRAME_ORDER[(TIMEFRAME_ORDER.indexOf(tf) + 1) % TIMEFRAME_ORDER.length]);
+
+  const timeframeLabel = PRESET_LABELS[timeframe];
+  const timeframeRange = { preset: timeframe, start: '', end: '' };
+
   const activeLoadsList = loads.filter((l) => ['OPEN', 'DISPATCHED', 'IN_TRANSIT'].includes(l.status));
   const activeLoadsCount = activeLoadsList.length;
   const inTransitCount = loads.filter((l) => l.status === 'IN_TRANSIT').length;
   const dispatchedCount = loads.filter((l) => l.status === 'DISPATCHED').length;
 
-  const grossRevenueMinor = loads
+  // Periods have no upper bound, so an in-transit load delivering later in the
+  // period still belongs to it.
+  const earningLoads = loads
     .filter((l) => ['PAID', 'INVOICED', 'DELIVERED', 'IN_TRANSIT'].includes(l.status))
-    .reduce((sum, l) => sum + (l.rateMinor || 0), 0);
+    .filter((l) => inRange(loadDate(l), timeframeRange, now))
+    .sort((a, b) => (loadDate(a) || '').localeCompare(loadDate(b) || ''));
+
+  const grossRevenueMinor = earningLoads.reduce((sum, l) => sum + (l.rateMinor || 0), 0);
+
+  // The only costs the model carries today are driver settlements and factoring
+  // fees, both recorded on the load's invoice.
+  const costForLoad = (loadId: string) =>
+    invoices
+      .filter((inv) => inv.loadId === loadId)
+      .reduce((sum, inv) => sum + (inv.driverPayMinor || 0) + (inv.factoringFeeMinor || 0), 0);
+
+  const totalCostMinor = earningLoads.reduce((sum, l) => sum + costForLoad(l.id), 0);
+  const netProfitMinor = grossRevenueMinor - totalCostMinor;
+  const marginPct = grossRevenueMinor > 0 ? (netProfitMinor / grossRevenueMinor) * 100 : 0;
 
   const unassignedLoadsCount = loads.filter((l) => !l.driverId && l.status !== 'PAID').length;
 
   const complianceDrivers = drivers.filter(d => {
     if (!d.cdlExpiration && !d.medicalCardExpiration) return false;
-    const cdlDiff = d.cdlExpiration ? (new Date(d.cdlExpiration).getTime() - now.getTime()) / (1000 * 60 * 60 * 24) : 999;
-    const medDiff = d.medicalCardExpiration ? (new Date(d.medicalCardExpiration).getTime() - now.getTime()) / (1000 * 60 * 60 * 24) : 999;
-    return cdlDiff < 60 || medDiff < 60;
+    // parseYmd, not new Date(): a bare date string is a local calendar day here,
+    // not UTC midnight.
+    const daysOut = (date?: string) => {
+      const when = date ? parseYmd(date) : null;
+      return when ? (when.getTime() - now.getTime()) / (1000 * 60 * 60 * 24) : 999;
+    };
+    return daysOut(d.cdlExpiration) < 60 || daysOut(d.medicalCardExpiration) < 60;
   });
 
   return (
@@ -76,7 +119,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               View dispatch board
             </Button>
             <Button icon={<Plus size={13} />} onClick={onOpenCreateLoad}>
-              Book new load
+              Build a load
             </Button>
           </>
         }
@@ -94,20 +137,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <StatCard
           variant="hero"
-          label="Gross revenue"
+          label={`Gross revenue · ${timeframeLabel}`}
           value={`$${(grossRevenueMinor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          sub={`Across ${loads.length} loads`}
-          spark={loads.slice(-8).map((l) => l.rateMinor)}
-          onClick={() => setActiveTab('invoices')}
+          sub={`Across ${earningLoads.length} loads • click to change period`}
+          spark={earningLoads.slice(-8).map((l) => l.rateMinor)}
+          onClick={cycleTimeframe}
         />
 
         <StatCard
           variant="ring"
-          ringPct={98.4}
-          label="On-time delivery"
-          value="98.4%"
-          sub="Target >95% SLA"
-          onClick={() => setActiveTab('reports')}
+          ringPct={Math.max(0, Math.min(100, marginPct))}
+          label={`Net profit · ${timeframeLabel}`}
+          value={`$${(netProfitMinor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+          sub={
+            <>
+              <span className={marginPct >= 0 ? 'text-pos font-semibold' : 'text-danger font-semibold'}>
+                {marginPct.toFixed(1)}% margin
+              </span>
+              {' '}• after driver pay & factoring
+            </>
+          }
+          onClick={cycleTimeframe}
         />
 
         <StatCard

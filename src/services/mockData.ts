@@ -4,6 +4,58 @@ const fourDaysFromNow = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOStri
 const tenDaysFromNow = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 const sixDaysFromNow = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Relative demo dates
+//
+// The dashboard's revenue/profit cards bucket loads into this week, this month
+// and this year, so the seed history is anchored to whenever the demo is run —
+// hardcoded dates would drift out of every bucket within a month.
+// ─────────────────────────────────────────────────────────────────────────────
+const NOW = new Date();
+
+/**
+ * Format from local calendar fields — toISOString() would render local midnight
+ * in UTC and slide the date back a day for anyone east of Greenwich.
+ */
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Parse a YYYY-MM-DD string as a local calendar day. */
+const parseYmd = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const addDays = (s: string, days: number) => {
+  const d = parseYmd(s);
+  d.setDate(d.getDate() + days);
+  return ymd(d);
+};
+
+/** Monday of the current calendar week. */
+const startOfWeek = (): Date => {
+  const d = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // getDay(): Sunday = 0
+  return d;
+};
+
+/** A day inside the current week, offset from Monday. */
+const thisWeek = (mondayOffset: number): string => {
+  const d = startOfWeek();
+  d.setDate(d.getDate() + mondayOffset);
+  return ymd(d);
+};
+
+/** A day in the current calendar month (usually before this week started). */
+const thisMonth = (dayOfMonth: number): string =>
+  ymd(new Date(NOW.getFullYear(), NOW.getMonth(), dayOfMonth));
+
+/** A day in an earlier month of the current year. */
+const monthsBack = (months: number, dayOfMonth: number): string =>
+  ymd(new Date(NOW.getFullYear(), NOW.getMonth() - months, dayOfMonth));
+
+const today = ymd(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()));
+
 export const SEED_ROLES: Role[] = [
   {
     id: 'role-admin',
@@ -79,7 +131,8 @@ export const SEED_DRIVERS: Driver[] = [
   {
     id: 'drv-101', tenantId: 'tenant-nune-express',
     name: 'David Miller', email: 'dmiller@nuneexpress.com', phone: '(312) 555-0149',
-    address: '1420 W. Division St, Chicago, IL', employmentType: 'COMPANY_DRIVER',
+    address: '1420 W. Division St, Chicago, IL', socialSecurityNumber: '412550188',
+    employmentType: 'COMPANY_DRIVER',
     assignedTruckId: 'eq-1', assignedTruckNumber: 'TK-101',
     cdlNumber: 'IL-98402948', cdlClass: 'A', cdlExpiration: '2027-11-15',
     medicalCardExpiration: '2026-08-10', status: 'ON_LOAD',
@@ -88,7 +141,8 @@ export const SEED_DRIVERS: Driver[] = [
   {
     id: 'drv-102', tenantId: 'tenant-nune-express',
     name: 'Alexei Kowalski', email: 'alexei.k@nuneexpress.com', phone: '(312) 555-0182',
-    address: '8820 S. Cicero Ave, Chicago, IL', employmentType: 'OWNER_OPERATOR',
+    address: '8820 S. Cicero Ave, Chicago, IL', socialSecurityNumber: '327904471',
+    employmentType: 'OWNER_OPERATOR', businessName: 'Kowalski Transport LLC', einNumber: '84-3920174',
     assignedTruckId: 'eq-2', assignedTruckNumber: 'TK-204',
     cdlNumber: 'IN-44910283', cdlClass: 'A', cdlExpiration: '2028-04-20',
     medicalCardExpiration: '2027-01-15', status: 'AVAILABLE',
@@ -97,7 +151,8 @@ export const SEED_DRIVERS: Driver[] = [
   {
     id: 'drv-103', tenantId: 'tenant-nune-express',
     name: 'Roberto Santos', email: 'rsantos@nuneexpress.com', phone: '(773) 555-0344',
-    address: '3310 N. Pulaski Rd, Chicago, IL', employmentType: 'COMPANY_DRIVER',
+    address: '3310 N. Pulaski Rd, Chicago, IL', socialSecurityNumber: '556201933',
+    employmentType: 'COMPANY_DRIVER',
     assignedTruckId: 'eq-3', assignedTruckNumber: 'TK-306',
     cdlNumber: 'IL-77201849', cdlClass: 'A', cdlExpiration: '2026-07-30',
     medicalCardExpiration: '2027-03-22', status: 'ON_LOAD',
@@ -106,7 +161,8 @@ export const SEED_DRIVERS: Driver[] = [
   {
     id: 'drv-104', tenantId: 'tenant-nune-express',
     name: 'James Thompson', email: 'jthompson@nuneexpress.com', phone: '(312) 555-0478',
-    address: '5590 W. Irving Park Rd, Chicago, IL', employmentType: 'COMPANY_DRIVER',
+    address: '5590 W. Irving Park Rd, Chicago, IL', socialSecurityNumber: '281447605',
+    employmentType: 'COMPANY_DRIVER',
     cdlNumber: 'IL-33128477', cdlClass: 'A', cdlExpiration: '2027-06-01',
     medicalCardExpiration: '2026-09-30', status: 'AVAILABLE',
     payRateType: 'PER_MILE', payRateMinor: 70, createdAt: '2024-06-15T00:00:00Z',
@@ -114,7 +170,8 @@ export const SEED_DRIVERS: Driver[] = [
   {
     id: 'drv-105', tenantId: 'tenant-nune-express',
     name: 'Kim Nguyen', email: 'knguyen@nuneexpress.com', phone: '(847) 555-0591',
-    address: '2280 Dempster St, Evanston, IL', employmentType: 'OWNER_OPERATOR',
+    address: '2280 Dempster St, Evanston, IL', socialSecurityNumber: '739118240',
+    employmentType: 'OWNER_OPERATOR', businessName: 'K.N. Freight Services', einNumber: '87-1104558',
     cdlNumber: 'IL-55849201', cdlClass: 'A', cdlExpiration: '2028-12-10',
     medicalCardExpiration: '2027-11-05', status: 'INACTIVE',
     payRateType: 'FLAT_PERCENT', payRateMinor: 85, notes: 'On medical leave.',
@@ -128,14 +185,14 @@ export const SEED_EQUIPMENT: Equipment[] = [
     vin: '1XKDDB9X2MD840291', makeModel: '2023 Kenworth T680', year: 2023,
     licensePlate: 'IL-TM2941', odometerMiles: 142050, inspectionDueDate: '2026-12-15',
     status: 'ACTIVE', assignedDriverId: 'drv-101', assignedDriverName: 'David Miller',
-    createdAt: '2023-05-01T00:00:00Z',
+    linkedEquipmentId: 'eq-5', createdAt: '2023-05-01T00:00:00Z',
   },
   {
     id: 'eq-2', tenantId: 'tenant-nune-express', unitNumber: 'TK-204', type: 'TRUCK',
     vin: '3AKJHHDR9KS019284', makeModel: '2022 Freightliner Cascadia', year: 2022,
     licensePlate: 'IN-BT7720', odometerMiles: 218400, inspectionDueDate: '2026-09-01',
     status: 'ACTIVE', assignedDriverId: 'drv-102', assignedDriverName: 'Alexei Kowalski',
-    createdAt: '2022-09-15T00:00:00Z',
+    linkedEquipmentId: 'eq-6', createdAt: '2022-09-15T00:00:00Z',
   },
   {
     id: 'eq-3', tenantId: 'tenant-nune-express', unitNumber: 'TK-306', type: 'TRUCK',
@@ -155,13 +212,13 @@ export const SEED_EQUIPMENT: Equipment[] = [
     id: 'eq-5', tenantId: 'tenant-nune-express', unitNumber: 'TR-501', type: 'TRAILER',
     vin: '1GRAA0621GJ109834', makeModel: '2022 Great Dane Everest', year: 2022,
     licensePlate: 'IL-GD5019', inspectionDueDate: '2026-11-30',
-    status: 'ACTIVE', createdAt: '2022-03-10T00:00:00Z',
+    status: 'ACTIVE', linkedEquipmentId: 'eq-1', createdAt: '2022-03-10T00:00:00Z',
   },
   {
     id: 'eq-6', tenantId: 'tenant-nune-express', unitNumber: 'TR-502', type: 'TRAILER',
     vin: '1JJV532D8NL280192', makeModel: '2023 Wabash DuraPlate', year: 2023,
     licensePlate: 'IL-WB2830', inspectionDueDate: '2027-01-20',
-    status: 'ACTIVE', createdAt: '2023-01-15T00:00:00Z',
+    status: 'ACTIVE', linkedEquipmentId: 'eq-2', createdAt: '2023-01-15T00:00:00Z',
   },
   {
     id: 'eq-7', tenantId: 'tenant-nune-express', unitNumber: 'TR-503', type: 'TRAILER',
@@ -175,37 +232,37 @@ export const SEED_EQUIPMENT: Equipment[] = [
 export const SEED_CUSTOMERS: Customer[] = [
   {
     id: 'cust-1', tenantId: 'tenant-nune-express', name: 'C.H. Robinson Worldwide',
-    mcNumber: 'MC-142857', contactPerson: 'Tom Harkness', contactEmail: 'freight@chrobinson.com',
+    mcNumber: 'MC-142857', dotNumber: '384821', contactPerson: 'Tom Harkness', contactEmail: 'freight@chrobinson.com',
     contactPhone: '(800) 323-7587', billingAddress: '14701 Charlson Rd', city: 'Eden Prairie',
-    state: 'MN', zip: '55347', paymentTermsDays: 30, creditLimitMinor: 10000000,
+    state: 'MN', zip: '55347', paymentOption: 'FACTORING', creditLimitMinor: 10000000,
     averageDaysToPay: 24, rating: 4.8, isActive: true, createdAt: '2024-01-01T00:00:00Z',
   },
   {
     id: 'cust-2', tenantId: 'tenant-nune-express', name: 'Echo Global Logistics',
-    mcNumber: 'MC-710981', contactPerson: 'Diane Russo', contactEmail: 'ops@echo.com',
+    mcNumber: 'MC-710981', dotNumber: '2005393', contactPerson: 'Diane Russo', contactEmail: 'ops@echo.com',
     contactPhone: '(800) 354-7993', billingAddress: '600 W. Chicago Ave', city: 'Chicago',
-    state: 'IL', zip: '60654', paymentTermsDays: 21, creditLimitMinor: 5000000,
+    state: 'IL', zip: '60654', paymentOption: 'DEPOSIT', creditLimitMinor: 5000000,
     averageDaysToPay: 18, rating: 4.5, isActive: true, createdAt: '2024-02-15T00:00:00Z',
   },
   {
     id: 'cust-3', tenantId: 'tenant-nune-express', name: 'XPO Logistics',
-    mcNumber: 'MC-305038', contactPerson: 'Greg Fowler', contactEmail: 'carrier@xpo.com',
+    mcNumber: 'MC-305038', dotNumber: '1259969', contactPerson: 'Greg Fowler', contactEmail: 'carrier@xpo.com',
     contactPhone: '(844) 742-5976', billingAddress: '5 American Ln', city: 'Greenwich',
-    state: 'CT', zip: '06831', paymentTermsDays: 45, creditLimitMinor: 15000000,
+    state: 'CT', zip: '06831', paymentOption: 'CHECK', creditLimitMinor: 15000000,
     averageDaysToPay: 38, rating: 4.1, isActive: true, createdAt: '2024-03-01T00:00:00Z',
   },
   {
     id: 'cust-4', tenantId: 'tenant-nune-express', name: 'Coyote Logistics',
-    mcNumber: 'MC-419380', contactPerson: 'Lisa Tran', contactEmail: 'freight@coyote.com',
+    mcNumber: 'MC-419380', dotNumber: '2136495', contactPerson: 'Lisa Tran', contactEmail: 'freight@coyote.com',
     contactPhone: '(877) 268-9683', billingAddress: '2545 W Diversey Pkwy', city: 'Chicago',
-    state: 'IL', zip: '60647', paymentTermsDays: 30, creditLimitMinor: 7500000,
+    state: 'IL', zip: '60647', paymentOption: 'FACTORING', creditLimitMinor: 7500000,
     averageDaysToPay: 27, rating: 4.3, isActive: true, createdAt: '2024-04-10T00:00:00Z',
   },
   {
     id: 'cust-5', tenantId: 'tenant-nune-express', name: 'Transplace Inc.',
-    mcNumber: 'MC-882011', contactPerson: 'Mark Reid', contactEmail: 'ops@transplace.com',
+    mcNumber: 'MC-882011', dotNumber: '1698306', contactPerson: 'Mark Reid', contactEmail: 'ops@transplace.com',
     contactPhone: '(512) 374-4840', billingAddress: '15305 N Dallas Pkwy', city: 'Addison',
-    state: 'TX', zip: '75001', paymentTermsDays: 30, creditLimitMinor: 3000000,
+    state: 'TX', zip: '75001', paymentOption: 'CHECK', creditLimitMinor: 3000000,
     isActive: false, notes: 'Account on hold pending credit review.', createdAt: '2023-11-01T00:00:00Z',
   },
 ];
@@ -330,6 +387,105 @@ export const SEED_LOADS: Load[] = [
     ],
     accessorials: [], documents: [], createdAt: '2026-07-17T12:00:00Z', updatedAt: '2026-07-19T12:00:00Z',
   },
+
+  // ── Settled history, spread across this week / this month / earlier this year
+  // so the dashboard's revenue & profit cards show a different figure per period.
+  ...([
+    {
+      id: 'ld-2001', loadNumber: 'NE-2026-090', status: 'PAID' as const, date: thisWeek(0),
+      brokerId: 'cust-1', brokerName: 'C.H. Robinson Worldwide', brokerReference: 'CHR-101884',
+      rateMinor: 420000, driverId: 'drv-101', driverName: 'David Miller',
+      truckId: 'eq-1', truckNumber: 'TK-101',
+      originCity: 'Chicago', originState: 'IL', destCity: 'Kansas City', destState: 'MO',
+      loadedMiles: 510, deadheadMiles: 22,
+      pickupFacility: 'Conagra Brands DC', deliveryFacility: 'Hy-Vee Distribution',
+    },
+    {
+      id: 'ld-2002', loadNumber: 'NE-2026-091', status: 'DELIVERED' as const, date: today,
+      brokerId: 'cust-4', brokerName: 'Coyote Logistics', brokerReference: 'COY-772014',
+      rateMinor: 360000, driverId: 'drv-102', driverName: 'Alexei Kowalski',
+      truckId: 'eq-2', truckNumber: 'TK-204',
+      originCity: 'Detroit', originState: 'MI', destCity: 'Indianapolis', destState: 'IN',
+      loadedMiles: 290, deadheadMiles: 15,
+      pickupFacility: 'GM Components Holdings', deliveryFacility: 'Rolls-Royce Indy Plant',
+    },
+    {
+      id: 'ld-2003', loadNumber: 'NE-2026-089', status: 'PAID' as const, date: thisMonth(1),
+      brokerId: 'cust-3', brokerName: 'XPO Logistics', brokerReference: 'XPO-448120',
+      rateMinor: 515000, driverId: 'drv-103', driverName: 'Roberto Santos',
+      truckId: 'eq-3', truckNumber: 'TK-306',
+      originCity: 'Dallas', originState: 'TX', destCity: 'Phoenix', destState: 'AZ',
+      loadedMiles: 1065, deadheadMiles: 40,
+      pickupFacility: 'Frito-Lay Plano DC', deliveryFacility: 'Sprouts Farmers Market DC',
+    },
+    {
+      id: 'ld-2004', loadNumber: 'NE-2026-070', status: 'PAID' as const, date: monthsBack(1, 12),
+      brokerId: 'cust-2', brokerName: 'Echo Global Logistics', brokerReference: 'ECHO-330187',
+      rateMinor: 640000, driverId: 'drv-101', driverName: 'David Miller',
+      truckId: 'eq-1', truckNumber: 'TK-101',
+      originCity: 'Seattle', originState: 'WA', destCity: 'Denver', destState: 'CO',
+      loadedMiles: 1320, deadheadMiles: 60,
+      pickupFacility: 'Boeing Everett Supply', deliveryFacility: 'King Soopers DC',
+    },
+    {
+      id: 'ld-2005', loadNumber: 'NE-2026-055', status: 'PAID' as const, date: monthsBack(3, 8),
+      brokerId: 'cust-1', brokerName: 'C.H. Robinson Worldwide', brokerReference: 'CHR-660934',
+      rateMinor: 295000, driverId: 'drv-102', driverName: 'Alexei Kowalski',
+      truckId: 'eq-2', truckNumber: 'TK-204',
+      originCity: 'Atlanta', originState: 'GA', destCity: 'Orlando', destState: 'FL',
+      loadedMiles: 440, deadheadMiles: 18,
+      pickupFacility: 'Home Depot Atlanta RDC', deliveryFacility: 'Publix Orlando DC',
+    },
+    {
+      id: 'ld-2006', loadNumber: 'NE-2026-032', status: 'PAID' as const, date: monthsBack(6, 20),
+      brokerId: 'cust-4', brokerName: 'Coyote Logistics', brokerReference: 'COY-118472',
+      rateMinor: 810000, driverId: 'drv-103', driverName: 'Roberto Santos',
+      truckId: 'eq-3', truckNumber: 'TK-306',
+      originCity: 'Los Angeles', originState: 'CA', destCity: 'Chicago', destState: 'IL',
+      loadedMiles: 2015, deadheadMiles: 75,
+      pickupFacility: 'Port of LA Cross-dock', deliveryFacility: 'Walgreens Chicago DC',
+    },
+  ].map<Load>((h, i) => ({
+    id: h.id,
+    tenantId: 'tenant-nune-express',
+    loadNumber: h.loadNumber,
+    status: h.status,
+    brokerId: h.brokerId,
+    brokerName: h.brokerName,
+    brokerReference: h.brokerReference,
+    rateMinor: h.rateMinor,
+    currency: 'USD',
+    driverId: h.driverId,
+    driverName: h.driverName,
+    truckId: h.truckId,
+    truckNumber: h.truckNumber,
+    originCity: h.originCity,
+    originState: h.originState,
+    destCity: h.destCity,
+    destState: h.destState,
+    pickupDate: h.date,
+    deliveryDate: h.date,
+    loadedMiles: h.loadedMiles,
+    deadheadMiles: h.deadheadMiles,
+    stops: [
+      {
+        id: `stp-h${i}-1`, sequence: 1, type: 'PICKUP', facilityName: h.pickupFacility,
+        address: '1 Logistics Way', city: h.originCity, state: h.originState, zip: '00000',
+        appointmentWindowStart: `${h.date}T08:00:00Z`, appointmentWindowEnd: `${h.date}T11:00:00Z`,
+        arrivedAt: `${h.date}T08:10:00Z`, departedAt: `${h.date}T10:15:00Z`,
+      },
+      {
+        id: `stp-h${i}-2`, sequence: 2, type: 'DELIVERY', facilityName: h.deliveryFacility,
+        address: '1 Receiving Dock', city: h.destCity, state: h.destState, zip: '00000',
+        appointmentWindowStart: `${h.date}T14:00:00Z`, appointmentWindowEnd: `${h.date}T17:00:00Z`,
+        arrivedAt: `${h.date}T14:20:00Z`, departedAt: `${h.date}T16:05:00Z`,
+      },
+    ],
+    accessorials: [],
+    documents: [],
+    createdAt: `${h.date}T07:00:00Z`,
+    updatedAt: `${h.date}T17:00:00Z`,
+  }))),
 ];
 
 export const SEED_INVOICES: Invoice[] = [
@@ -360,6 +516,36 @@ export const SEED_INVOICES: Invoice[] = [
     status: 'OVERDUE', driverPayMinor: 332100, driverSettlementStatus: 'PENDING',
     createdAt: '2026-07-10T09:00:00Z',
   },
+
+  // Settlements for the history loads above — driver pay at 72% of the linehaul
+  // and a 3% factoring fee are what the dashboard's profit card nets out.
+  ...([
+    { load: 'ld-2001', num: 'NE-2026-090', inv: 'INV-2026-090', cust: 'cust-1', custName: 'C.H. Robinson Worldwide', rate: 420000, date: thisWeek(0), paid: true },
+    { load: 'ld-2002', num: 'NE-2026-091', inv: 'INV-2026-091', cust: 'cust-4', custName: 'Coyote Logistics', rate: 360000, date: today, paid: false },
+    { load: 'ld-2003', num: 'NE-2026-089', inv: 'INV-2026-089', cust: 'cust-3', custName: 'XPO Logistics', rate: 515000, date: thisMonth(1), paid: true },
+    { load: 'ld-2004', num: 'NE-2026-070', inv: 'INV-2026-070', cust: 'cust-2', custName: 'Echo Global Logistics', rate: 640000, date: monthsBack(1, 12), paid: true },
+    { load: 'ld-2005', num: 'NE-2026-055', inv: 'INV-2026-055', cust: 'cust-1', custName: 'C.H. Robinson Worldwide', rate: 295000, date: monthsBack(3, 8), paid: true },
+    { load: 'ld-2006', num: 'NE-2026-032', inv: 'INV-2026-032', cust: 'cust-4', custName: 'Coyote Logistics', rate: 810000, date: monthsBack(6, 20), paid: true },
+  ].map<Invoice>((s) => ({
+    id: s.inv.toLowerCase(),
+    tenantId: 'tenant-nune-express',
+    invoiceNumber: s.inv,
+    loadId: s.load,
+    loadNumber: s.num,
+    customerId: s.cust,
+    customerName: s.custName,
+    issueDate: s.date,
+    dueDate: addDays(s.date, 30),
+    subtotalMinor: s.rate,
+    accessorialsMinor: 0,
+    totalMinor: s.rate,
+    status: s.paid ? 'PAID' : 'ISSUED',
+    paidAmountMinor: s.paid ? s.rate : undefined,
+    driverPayMinor: Math.round(s.rate * 0.72),
+    driverSettlementStatus: s.paid ? 'PAID' : 'PENDING',
+    factoringFeeMinor: Math.round(s.rate * 0.03),
+    createdAt: `${s.date}T18:00:00Z`,
+  }))),
 ];
 
 export const SEED_AUDIT_LOGS: AuditLogEntry[] = [

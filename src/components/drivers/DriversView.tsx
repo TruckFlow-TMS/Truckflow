@@ -1,16 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { Driver } from '../../types/tms';
+import { CdlEndorsement, Driver, DriverDocument, DriverDocumentType } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable, Badge, Avatar,
-  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
+  StatCard, EmptyState, FilterBar, FilterChips, FilterSearch, FormSection,
   statusTone, humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
-import { Users, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Users, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Upload, Paperclip, Eye,
+  User, Briefcase, CreditCard, DollarSign,
+} from 'lucide-react';
 
 interface DriversViewProps {
   drivers: Driver[];
@@ -21,9 +24,28 @@ const ITEMS_PER_PAGE = 15;
 
 const STATUS_OPTIONS = [
   { value: 'All', label: 'All' },
-  { value: 'AVAILABLE', label: 'Available' },
+  { value: 'AVAILABLE', label: 'Active' },
   { value: 'ON_LOAD', label: 'On load' },
   { value: 'INACTIVE', label: 'Inactive' },
+];
+
+/**
+ * A driver profile is set to Active or Inactive by hand; On load is applied by
+ * dispatch when a driver is assigned, so it is not an option in the form.
+ */
+const FORM_STATUS_OPTIONS = [
+  { value: 'AVAILABLE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+];
+
+const ENDORSEMENT_OPTIONS: { value: CdlEndorsement; label: string }[] = [
+  { value: 'HAZMAT', label: 'Hazmat' },
+  { value: 'TANKER', label: 'Tanker' },
+];
+
+const DRIVER_DOC_TYPES: { type: DriverDocumentType; label: string }[] = [
+  { type: 'DRIVER_ID', label: 'Driver ID' },
+  { type: 'MEDICAL_CARD', label: 'Medical card' },
 ];
 
 const TYPE_OPTIONS = [
@@ -96,6 +118,11 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
       setFormData({
         status: 'AVAILABLE',
         employmentType: 'COMPANY_DRIVER',
+        // Seeded rather than left to the Select's fallback display, or a driver
+        // saved without touching the field would persist no class at all.
+        cdlClass: 'A',
+        cdlEndorsements: [],
+        documents: [],
         payRateType: 'PER_MILE',
         payRateMinor: 65
       });
@@ -107,6 +134,48 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
     setShowModal(false);
     setEditItem(null);
     setFormData({});
+  };
+
+  const isOwnerOperator = formData.employmentType === 'OWNER_OPERATOR';
+  const ssnValue = formData.socialSecurityNumber || '';
+  const ssnIncomplete = ssnValue.length > 0 && ssnValue.length < 9;
+
+  const toggleEndorsement = (endorsement: CdlEndorsement) => {
+    const current = formData.cdlEndorsements || [];
+    setFormData({
+      ...formData,
+      cdlEndorsements: current.includes(endorsement)
+        ? current.filter((e) => e !== endorsement)
+        : [...current, endorsement],
+    });
+  };
+
+  const findDoc = (type: DriverDocumentType): DriverDocument | undefined =>
+    (formData.documents || []).find((d) => d.type === type);
+
+  const handleDocUpload = (type: DriverDocumentType, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const doc: DriverDocument = {
+      type,
+      name: file.name,
+      // Object URLs live only as long as the tab does — same trade-off the load
+      // and company document uploads make in this mock-backed build.
+      fileUrl: URL.createObjectURL(file),
+      uploadedAt: new Date().toISOString(),
+    };
+    setFormData({
+      ...formData,
+      documents: [...(formData.documents || []).filter((d) => d.type !== type), doc],
+    });
+    e.target.value = '';
+  };
+
+  const handleDocRemove = (type: DriverDocumentType) => {
+    setFormData({
+      ...formData,
+      documents: (formData.documents || []).filter((d) => d.type !== type),
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -272,10 +341,10 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           variant="hero"
           label="Drivers on the roster"
           value={String(kpiData.total)}
-          sub={`${kpiData.available} available · ${kpiData.onLoad} on a load`}
+          sub={`${kpiData.available} active · ${kpiData.onLoad} on a load`}
         />
         <StatCard
-          label="Available now"
+          label="Active now"
           value={String(kpiData.available)}
           sub="Ready to be dispatched"
         />
@@ -381,105 +450,256 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           </>
         }
       >
-        <form id="driver-form" onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
+        <form id="driver-form" onSubmit={handleSave} className="space-y-6">
+          <FormSection title="Identity & contact" icon={<User size={13} className="text-accent" />}>
+            <div className="md:col-span-2">
+              <Input
+                label="Full name*"
+                required
+                value={formData.name || ''}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
             <Input
-              label="Full name*"
+              label="Email*"
               required
-              value={formData.name || ''}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              type="email"
+              value={formData.email || ''}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
             />
-          </div>
-          <Input
-            label="Email*"
-            required
-            type="email"
-            value={formData.email || ''}
-            onChange={e => setFormData({ ...formData, email: e.target.value })}
-          />
-          <Input
-            label="Phone*"
-            required
-            value={formData.phone || ''}
-            onChange={e => setFormData({ ...formData, phone: e.target.value })}
-          />
-          <div className="md:col-span-2">
             <Input
-              label="Address"
-              value={formData.address || ''}
-              onChange={e => setFormData({ ...formData, address: e.target.value })}
+              label="Phone*"
+              required
+              value={formData.phone || ''}
+              onChange={e => setFormData({ ...formData, phone: e.target.value })}
             />
-          </div>
-          <Select
-            label="Employment type*"
-            required
-            value={formData.employmentType || 'COMPANY_DRIVER'}
-            onChange={e => setFormData({ ...formData, employmentType: e.target.value as any })}
-            options={[
-              { value: 'COMPANY_DRIVER', label: 'Company driver' },
-              { value: 'OWNER_OPERATOR', label: 'Owner operator' },
-            ]}
-          />
-          <Select
-            label="Status*"
-            required
-            value={formData.status || 'AVAILABLE'}
-            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-            options={[
-              { value: 'AVAILABLE', label: 'Available' },
-              { value: 'ON_LOAD', label: 'On load' },
-              { value: 'INACTIVE', label: 'Inactive' },
-            ]}
-          />
-          <Input
-            label="CDL number*"
-            required
-            value={formData.cdlNumber || ''}
-            onChange={e => setFormData({ ...formData, cdlNumber: e.target.value })}
-          />
-          <Select
-            label="CDL class"
-            value={formData.cdlClass || 'A'}
-            onChange={e => setFormData({ ...formData, cdlClass: e.target.value })}
-            options={[
-              { value: 'A', label: 'Class A' },
-              { value: 'B', label: 'Class B' },
-              { value: 'C', label: 'Class C' },
-            ]}
-          />
-          <Input
-            label="CDL expiration*"
-            required
-            type="date"
-            value={formData.cdlExpiration || ''}
-            onChange={e => setFormData({ ...formData, cdlExpiration: e.target.value })}
-          />
-          <Input
-            label="Medical card expiration*"
-            required
-            type="date"
-            value={formData.medicalCardExpiration || ''}
-            onChange={e => setFormData({ ...formData, medicalCardExpiration: e.target.value })}
-          />
-          <Select
-            label="Pay rate type*"
-            required
-            value={formData.payRateType || 'PER_MILE'}
-            onChange={e => setFormData({ ...formData, payRateType: e.target.value as any })}
-            options={[
-              { value: 'PER_MILE', label: 'Per mile (cents)' },
-              { value: 'FLAT_PERCENT', label: 'Flat gross %' },
-              { value: 'PER_HOUR', label: 'Per hour ($)' },
-            ]}
-          />
-          <Input
-            label="Pay rate value (cents / %)*"
-            required
-            type="number"
-            step="1"
-            value={formData.payRateMinor ?? ''}
-            onChange={e => setFormData({ ...formData, payRateMinor: Number(e.target.value) })}
-          />
+            <div className="md:col-span-2">
+              <Input
+                label="Address*"
+                required
+                value={formData.address || ''}
+                onChange={e => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+            <Input
+              label="Social security number*"
+              required
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={9}
+              // Exactly nine digits or nothing gets saved: `required` blocks the
+              // empty case, the pattern blocks a half-typed one.
+              pattern="[0-9]{9}"
+              placeholder="9 digits"
+              hint={ssnIncomplete ? undefined : 'Digits only, no dashes'}
+              error={ssnIncomplete ? `${ssnValue.length} of 9 digits` : undefined}
+              className="tnum"
+              value={ssnValue}
+              // Digits are stripped on the way in, so a pasted 123-45-6789
+              // still lands as a clean nine-digit value.
+              onChange={e => setFormData({
+                ...formData,
+                socialSecurityNumber: e.target.value.replace(/\D/g, '').slice(0, 9),
+              })}
+            />
+          </FormSection>
+
+          <FormSection title="Employment" icon={<Briefcase size={13} className="text-accent" />}>
+            <Select
+              label="Employment type*"
+              required
+              value={formData.employmentType || 'COMPANY_DRIVER'}
+              // Switching back to company driver drops the business details
+              // rather than hiding them and saving them anyway.
+              onChange={e => {
+                const employmentType = e.target.value as Driver['employmentType'];
+                setFormData(employmentType === 'OWNER_OPERATOR'
+                  ? { ...formData, employmentType }
+                  : { ...formData, employmentType, businessName: undefined, einNumber: undefined });
+              }}
+              options={[
+                { value: 'COMPANY_DRIVER', label: 'Company driver' },
+                { value: 'OWNER_OPERATOR', label: 'Owner operator' },
+              ]}
+            />
+            <Select
+              label="Status*"
+              required
+              value={formData.status || 'AVAILABLE'}
+              onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+              // A driver already out on a load keeps that status rather than being
+              // silently reset to Active by an unrelated profile edit.
+              options={
+                formData.status === 'ON_LOAD'
+                  ? [...FORM_STATUS_OPTIONS, { value: 'ON_LOAD', label: 'On load' }]
+                  : FORM_STATUS_OPTIONS
+              }
+            />
+
+            {/* Owner operators run under their own authority, so they carry a
+                business identity a company driver has no use for. */}
+            {isOwnerOperator && (
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-ctl border border-bd bg-surface-2 p-3">
+                <div className="md:col-span-2 flex items-center justify-between gap-3">
+                  <span className="text-[11.5px] font-semibold text-fg">Business details</span>
+                  <span className="text-[10.5px] text-fg-3">Owner operators · both optional</span>
+                </div>
+                <Input
+                  label="Business name"
+                  placeholder="e.g. Kowalski Trucking LLC"
+                  value={formData.businessName || ''}
+                  onChange={e => setFormData({ ...formData, businessName: e.target.value })}
+                />
+                <Input
+                  label="EIN number"
+                  inputMode="numeric"
+                  placeholder="12-3456789"
+                  className="tnum"
+                  value={formData.einNumber || ''}
+                  onChange={e => setFormData({ ...formData, einNumber: e.target.value })}
+                />
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection title="CDL & qualifications" icon={<CreditCard size={13} className="text-accent" />}>
+            <Input
+              label="CDL number*"
+              required
+              value={formData.cdlNumber || ''}
+              onChange={e => setFormData({ ...formData, cdlNumber: e.target.value })}
+            />
+            <Select
+              label="CDL class*"
+              required
+              value={formData.cdlClass || 'A'}
+              onChange={e => setFormData({ ...formData, cdlClass: e.target.value })}
+              options={[{ value: 'A', label: 'Class A' }]}
+            />
+
+            <div className="md:col-span-2 space-y-1.5">
+              <span className="block text-[11.5px] font-medium text-fg-2">Endorsements</span>
+              <div className="flex flex-wrap gap-2">
+                {ENDORSEMENT_OPTIONS.map(({ value, label }) => {
+                  const checked = (formData.cdlEndorsements || []).includes(value);
+                  return (
+                    <label
+                      key={value}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-ctl border text-[12px] font-medium cursor-pointer transition ${
+                        checked
+                          ? 'border-accent bg-accent-weak text-accent'
+                          : 'border-bd bg-surface text-fg-2 hover:border-accent/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={label}
+                        className="accent-current"
+                        checked={checked}
+                        onChange={() => toggleEndorsement(value)}
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Input
+              label="CDL expiration*"
+              required
+              type="date"
+              value={formData.cdlExpiration || ''}
+              onChange={e => setFormData({ ...formData, cdlExpiration: e.target.value })}
+            />
+            <Input
+              label="Medical card expiration*"
+              required
+              type="date"
+              value={formData.medicalCardExpiration || ''}
+              onChange={e => setFormData({ ...formData, medicalCardExpiration: e.target.value })}
+            />
+          </FormSection>
+
+          <FormSection title="Pay" icon={<DollarSign size={13} className="text-accent" />}>
+            <Select
+              label="Pay rate type*"
+              required
+              value={formData.payRateType || 'PER_MILE'}
+              onChange={e => setFormData({ ...formData, payRateType: e.target.value as any })}
+              options={[
+                { value: 'PER_MILE', label: 'Per mile (cents)' },
+                { value: 'FLAT_PERCENT', label: 'Flat gross %' },
+                { value: 'PER_HOUR', label: 'Per hour ($)' },
+              ]}
+            />
+            <Input
+              label="Pay rate value (cents / %)*"
+              required
+              type="number"
+              step="1"
+              value={formData.payRateMinor ?? ''}
+              onChange={e => setFormData({ ...formData, payRateMinor: Number(e.target.value) })}
+            />
+          </FormSection>
+
+          <FormSection
+            title="Documents"
+            icon={<Paperclip size={13} className="text-accent" />}
+            aside="Optional"
+          >
+            {DRIVER_DOC_TYPES.map(({ type, label }) => {
+              const doc = findDoc(type);
+              return (
+                <div key={type} className="p-3 rounded-ctl border border-bd bg-surface-2 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-fg text-[12.5px]">{label}</span>
+                    <Badge tone={doc ? 'pos' : 'neutral'} dot={false}>
+                      {doc ? 'Uploaded' : 'Not uploaded'}
+                    </Badge>
+                  </div>
+
+                  {doc ? (
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-bd/60 text-[11.5px]">
+                      <span className="inline-flex items-center gap-1.5 text-accent font-medium min-w-0">
+                        <Paperclip size={12} className="shrink-0" />
+                        <span className="truncate">{doc.name}</span>
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1 rounded text-fg-3 hover:text-accent hover:bg-surface-2 transition-colors"
+                          title={`View ${label.toLowerCase()}`}
+                        >
+                          <Eye size={14} />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleDocRemove(type)}
+                          className="p-1 rounded text-fg-3 hover:text-danger hover:bg-surface-2 transition-colors"
+                          title="Remove file"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-ctl border border-dashed border-bd-strong bg-surface hover:bg-surface-2 cursor-pointer text-[11.5px] font-medium text-fg-2 hover:text-accent transition">
+                      <Upload size={13} className="text-accent" />
+                      <span>Choose file…</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => handleDocUpload(type, e)}
+                      />
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </FormSection>
         </form>
       </Modal>
 
@@ -487,7 +707,10 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
         <ConfirmModal
           isOpen={!!deleteItem}
           title="Delete driver"
-          message={`Are you sure you want to delete ${deleteItem.name}?`}
+          message={`Deleting ${deleteItem.name} removes their profile, credentials and uploaded documents. This action cannot be undone.`}
+          confirmPhrase={deleteItem.name}
+          confirmNoun="driver name"
+          confirmLabel="Delete driver"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

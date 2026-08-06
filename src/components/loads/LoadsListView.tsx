@@ -8,9 +8,10 @@ import { EditLoadModal } from './EditLoadModal';
 import { LoadDetailModal } from './LoadDetailModal';
 import { CreateLoadModal } from './CreateLoadModal';
 import {
-  Button, Input, PageHeader, DataTable, Badge, Avatar, StatCard,
-  EmptyState, FilterBar, FilterChips, FilterSearch, statusTone, humanizeStatus,
+  Button, PageHeader, DataTable, Badge, Avatar, StatCard, EmptyState,
+  FilterBar, FilterChips, FilterSearch, DateRangeFilter, statusTone, humanizeStatus,
 } from '../ui';
+import { ALL_TIME, DateRange, inRange, rangeLabel } from '../../lib/dateRange';
 import type { Column } from '../ui';
 import {
   Package, Plus, FileText, Eye, Edit2, Trash2,
@@ -40,8 +41,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
   // Filters & Pagination State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange>(ALL_TIME);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Modal States
@@ -51,29 +51,29 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
   const [deletingLoad, setDeletingLoad] = useState<Load | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Filtered Loads Calculation
+  // Two-stage filtering. The date range defines the *book* being looked at, so
+  // the KPI strip is computed from it; search and status only narrow which rows
+  // of that book are on screen and must not move the totals underneath them.
+  const loadsInRange = useMemo(
+    () => loads.filter((ld) => inRange(ld.pickupDate, dateRange)),
+    [loads, dateRange],
+  );
+
   const filteredLoads = useMemo(() => {
-    return loads.filter((ld) => {
+    const q = searchQuery.toLowerCase();
+    return loadsInRange.filter((ld) => {
       const matchesSearch =
-        ld.loadNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ld.brokerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (ld.driverName && ld.driverName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (ld.originCity && ld.originCity.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (ld.destCity && ld.destCity.toLowerCase().includes(searchQuery.toLowerCase()));
+        ld.loadNumber.toLowerCase().includes(q) ||
+        ld.brokerName.toLowerCase().includes(q) ||
+        (ld.driverName && ld.driverName.toLowerCase().includes(q)) ||
+        (ld.originCity && ld.originCity.toLowerCase().includes(q)) ||
+        (ld.destCity && ld.destCity.toLowerCase().includes(q));
 
       const matchesStatus = statusFilter === 'ALL' || ld.status === statusFilter;
 
-      let matchesDate = true;
-      if (startDate && ld.pickupDate) {
-        matchesDate = matchesDate && ld.pickupDate >= startDate;
-      }
-      if (endDate && ld.pickupDate) {
-        matchesDate = matchesDate && ld.pickupDate <= endDate;
-      }
-
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesStatus;
     });
-  }, [loads, searchQuery, statusFilter, startDate, endDate]);
+  }, [loadsInRange, searchQuery, statusFilter]);
 
   // Pagination Slice
   const totalPages = Math.ceil(filteredLoads.length / ITEMS_PER_PAGE) || 1;
@@ -89,18 +89,33 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     return filteredLoads.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredLoads, page]);
 
-  // Derived from the *unfiltered* set on purpose: these read as the state of the
-  // book, so they must not move when someone types in the search box.
   const kpis = useMemo(() => {
-    const active = loads.filter((l) =>
+    const rows = loadsInRange;
+    const active = rows.filter((l) =>
       ['DISPATCHED', 'IN_TRANSIT', 'OPEN'].includes(l.status)).length;
-    const gross = loads.reduce((sum, l) => sum + l.rateMinor, 0) / 100;
-    const unassigned = loads.filter((l) => !l.driverName).length;
-    const delivered = loads.filter((l) =>
+    const gross = rows.reduce((sum, l) => sum + l.rateMinor, 0) / 100;
+    const unassigned = rows.filter((l) => !l.driverName).length;
+    const delivered = rows.filter((l) =>
       ['DELIVERED', 'DELIVERED_POD', 'INVOICED', 'PAID'].includes(l.status)).length;
-    const onTime = loads.length ? Math.round((delivered / loads.length) * 1000) / 10 : 0;
-    return { active, gross, unassigned, onTime };
-  }, [loads]);
+    const onTime = rows.length ? Math.round((delivered / rows.length) * 1000) / 10 : 0;
+    // Rate per load in pickup order — a real trend line for the range rather
+    // than the fixed decorative numbers this card used to draw.
+    const trend = [...rows]
+      .sort((a, b) => (a.pickupDate || '').localeCompare(b.pickupDate || ''))
+      .slice(-8)
+      .map((l) => l.rateMinor);
+    return { count: rows.length, active, gross, unassigned, onTime, trend };
+  }, [loadsInRange]);
+
+  const hasActiveFilters =
+    searchQuery !== '' || statusFilter !== 'ALL' || dateRange.preset !== 'ALL';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setDateRange(ALL_TIME);
+    setCurrentPage(1);
+  };
 
   const money = (minor: number) =>
     `$${(minor / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
@@ -227,13 +242,14 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     },
   ];
 
-  // Counts come off the unfiltered set so a chip always shows how much it
-  // would return, not how much survived the filter currently applied.
+  // Counts come off the date-scoped set, before search and status are applied,
+  // so a chip always shows how much it would return within the current range —
+  // not how much survived the filter already on screen.
   const STATUS_OPTIONS = useMemo(() => {
-    const count = (status: string) => loads.filter((l) => l.status === status).length;
+    const count = (status: string) => loadsInRange.filter((l) => l.status === status).length;
     return [
-      { value: 'ALL', label: 'All', count: loads.length },
-      { value: 'OPEN', label: 'Open', count: count('OPEN') },
+      { value: 'ALL', label: 'All', count: loadsInRange.length },
+      { value: 'OPEN', label: 'Unassigned', count: count('OPEN') },
       { value: 'DISPATCHED', label: 'Dispatched', count: count('DISPATCHED') },
       { value: 'IN_TRANSIT', label: 'In transit', count: count('IN_TRANSIT') },
       { value: 'DELIVERED', label: 'Delivered', count: count('DELIVERED') },
@@ -241,7 +257,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
       { value: 'PAID', label: 'Paid', count: count('PAID') },
       { value: 'CANCELLED', label: 'Cancelled', count: count('CANCELLED') },
     ];
-  }, [loads]);
+  }, [loadsInRange]);
 
   // Action Handlers
   const handleConfirmDelete = async () => {
@@ -274,12 +290,16 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     <div className="space-y-3.5">
       <PageHeader
         title="Loads"
-        subtitle={`${filteredLoads.length} of ${loads.length} loads`}
+        subtitle={
+          dateRange.preset === 'ALL'
+            ? `${filteredLoads.length} of ${loads.length} loads`
+            : `${filteredLoads.length} of ${kpis.count} loads · ${rangeLabel(dateRange).toLowerCase()}`
+        }
         actions={
           <>
             <Button variant="secondary">Export</Button>
             <Button icon={<Plus size={13} />} onClick={() => setShowCreateModal(true)}>
-              New load
+              Build a load
             </Button>
           </>
         }
@@ -288,16 +308,16 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           variant="hero"
-          label="Gross revenue"
+          label={`Gross revenue · ${rangeLabel(dateRange)}`}
           value={`$${kpis.gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          sub={`Across ${loads.length} loads`}
-          spark={[4, 6, 5, 9, 7, 12, 10, 15]}
+          sub={`Across ${kpis.count} ${kpis.count === 1 ? 'load' : 'loads'} picked up in range`}
+          spark={kpis.trend}
           onClick={() => { setStatusFilter('ALL'); setSearchQuery(''); setCurrentPage(1); }}
         />
         <StatCard
           label="Active loads"
           value={String(kpis.active)}
-          sub="Open, dispatched or in transit"
+          sub="Unassigned, dispatched or in transit"
           onClick={() => { setStatusFilter('IN_TRANSIT'); setCurrentPage(1); }}
         />
         <StatCard
@@ -325,11 +345,19 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
           <EmptyState
             icon={<Package size={30} strokeWidth={1.5} />}
             title="No loads match these filters"
-            sub="Try a different status, date range or search term."
+            sub={
+              hasActiveFilters
+                ? `Nothing in ${rangeLabel(dateRange).toLowerCase()} matches the current status or search.`
+                : 'Build a load to see it appear here.'
+            }
             action={
-              <Button icon={<Plus size={13} />} onClick={() => setShowCreateModal(true)}>
-                Book a load
-              </Button>
+              hasActiveFilters ? (
+                <Button variant="secondary" onClick={clearFilters}>Clear filters</Button>
+              ) : (
+                <Button icon={<Plus size={13} />} onClick={() => setShowCreateModal(true)}>
+                  Build a load
+                </Button>
+              )
             }
           />
         }
@@ -343,23 +371,11 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
               />
             }
             extra={
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  aria-label="Pickup from"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
-                  className="h-8 w-auto tnum"
-                />
-                <span className="text-[11.5px] text-fg-3">to</span>
-                <Input
-                  type="date"
-                  aria-label="Pickup until"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
-                  className="h-8 w-auto tnum"
-                />
-              </div>
+              <DateRangeFilter
+                label="Filter loads by pickup date"
+                value={dateRange}
+                onChange={(r) => { setDateRange(r); setCurrentPage(1); }}
+              />
             }
             meta={`Showing ${paginatedLoads.length} of ${filteredLoads.length}`}
             chips={
@@ -399,7 +415,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
         </div>
       )}
 
-      {/* Create / Book Load Modal */}
+      {/* Build a load modal */}
       {showCreateModal && (
         <CreateLoadModal
           isOpen={showCreateModal}
@@ -437,8 +453,11 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
       {deletingLoad && (
         <ConfirmModal
           isOpen={!!deletingLoad}
-          title="Delete Freight Load"
-          message={`Are you sure you want to delete Load #${deletingLoad.loadNumber}? This action cannot be undone.`}
+          title="Delete freight load"
+          message={`Deleting load #${deletingLoad.loadNumber} (${deletingLoad.brokerName}) removes it from the book permanently. This action cannot be undone.`}
+          confirmPhrase={deletingLoad.loadNumber}
+          confirmNoun="load number"
+          confirmLabel="Delete load"
           isDanger={true}
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeletingLoad(null)}

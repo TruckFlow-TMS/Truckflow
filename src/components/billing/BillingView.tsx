@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Invoice, Load, Customer } from '../../types/tms';
+import { Invoice, InvoiceStatus, Load, Customer } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
 import {
   Button, Card, Input, Select, Modal, ConfirmModal, PageHeader, DataTable,
-  Badge, StatCard, EmptyState, FilterBar, FilterChips, FilterSearch,
-  statusTone, humanizeStatus,
+  StatCard, StatusPill, EmptyState, FilterBar, FilterChips, FilterSearch, DateRangeFilter,
+  humanizeStatus,
 } from '../ui';
 import type { Column } from '../ui';
+import { ALL_TIME, DateRange, inRange, rangeLabel } from '../../lib/dateRange';
 import {
   Plus, Edit2, Trash2, CheckCircle2, FileText, Ban,
   ChevronLeft, ChevronRight,
@@ -40,29 +41,48 @@ const FORM_STATUS_OPTIONS = [
   { value: 'VOID', label: 'Void' },
 ];
 
+/**
+ * Which pill picks stop for a confirmation. Voiding cannot be undone; marking
+ * paid writes a settlement and drags the load with it; and moving back out of
+ * Paid tears that settlement up again. Everything else is a clerical fix and
+ * goes straight through.
+ */
+const needsConfirm = (from: InvoiceStatus, to: InvoiceStatus) =>
+  to === 'VOID' || to === 'PAID' || from === 'PAID';
+
 export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, customers = [], onReload }) => {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [dateRange, setDateRange] = useState<DateRange>(ALL_TIME);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Invoice | null>(null);
-  const [voidItem, setVoidItem] = useState<Invoice | null>(null);
+  // One pending status move, whether it came from the pill or a row action —
+  // both paths land in the same confirmation so neither can skip it.
+  const [statusChange, setStatusChange] = useState<{ inv: Invoice; next: InvoiceStatus } | null>(null);
   const [deleteItem, setDeleteItem] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Invoice>>({});
 
+  // Same two-stage shape as the loads book: the date range defines the ledger
+  // the KPI strip reports on, search and status only narrow the rows shown.
+  const invoicesInRange = useMemo(
+    () => invoices.filter(inv => inRange(inv.issueDate, dateRange)),
+    [invoices, dateRange],
+  );
+
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    return invoicesInRange.filter(inv => {
       const customerName = customers.find(c => c.id === inv.customerId)?.name || '';
       const matchSearch = (inv.invoiceNumber + ' ' + customerName).toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'All' || inv.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [invoices, search, statusFilter, customers]);
+  }, [invoicesInRange, search, statusFilter, customers]);
 
   const totalPages = Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE) || 1;
   // Clamped so a result set that shrinks under the current page (narrowed
@@ -75,13 +95,14 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
   }, [filteredInvoices, page]);
 
   const kpiData = useMemo(() => {
-    const totalAr = invoices.filter(i => i.status === 'ISSUED' || i.status === 'OVERDUE').reduce((acc, curr) => acc + curr.totalMinor, 0);
-    const collectedThisMonth = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + curr.totalMinor, 0);
-    const overdueCount = invoices.filter(i => i.status === 'OVERDUE').length;
-    const billed = totalAr + collectedThisMonth;
-    const collectedPct = billed ? Math.round((collectedThisMonth / billed) * 1000) / 10 : 0;
-    return { totalAr, collectedThisMonth, overdueCount, collectedPct };
-  }, [invoices]);
+    const rows = invoicesInRange;
+    const totalAr = rows.filter(i => i.status === 'ISSUED' || i.status === 'OVERDUE').reduce((acc, curr) => acc + curr.totalMinor, 0);
+    const collected = rows.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + curr.totalMinor, 0);
+    const overdueCount = rows.filter(i => i.status === 'OVERDUE').length;
+    const billed = totalAr + collected;
+    const collectedPct = billed ? Math.round((collected / billed) * 1000) / 10 : 0;
+    return { count: rows.length, totalAr, collected, overdueCount, collectedPct };
+  }, [invoicesInRange]);
 
   const formatCurrency = (minorUnits?: number) => {
     if (minorUnits === undefined) return '$0.00';
@@ -146,34 +167,62 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     }
   };
 
-  const handleMarkPaid = async (inv: Invoice) => {
+  const commitStatus = async (inv: Invoice, next: InvoiceStatus) => {
     if (!currentUser) return;
     setIsLoading(true);
     try {
-      await mockStore.markInvoicePaid(inv.id, currentUser);
-      showToast('success', 'Invoice marked as paid');
+      await mockStore.updateInvoiceStatus(inv.id, next, currentUser);
+      showToast('success', `${inv.invoiceNumber} set to ${humanizeStatus(next)}`);
       onReload();
+      setStatusChange(null);
     } catch (error: any) {
-      showToast('error', error.message || 'Failed to mark paid');
+      showToast('error', error.message || 'Failed to update status');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVoid = async () => {
-    if (!currentUser || !voidItem) return;
-    setIsLoading(true);
-    try {
-      await mockStore.voidInvoice(voidItem.id, currentUser);
-      showToast('success', 'Invoice voided');
-      onReload();
-      setVoidItem(null);
-    } catch (error: any) {
-      showToast('error', error.message || 'Failed to void invoice');
-    } finally {
-      setIsLoading(false);
-    }
+  const requestStatus = (inv: Invoice, next: InvoiceStatus) => {
+    if (needsConfirm(inv.status, next)) return setStatusChange({ inv, next });
+    return commitStatus(inv, next);
   };
+
+  /** Copy for the pending move — the danger of the three guarded transitions
+   *  differs, and so does how hard each should be to click through. */
+  const statusPrompt = (() => {
+    if (!statusChange) return null;
+    const { inv, next } = statusChange;
+    const who = customers.find(c => c.id === inv.customerId)?.name || inv.customerName;
+    const load = loads.find(l => l.id === inv.loadId);
+
+    if (next === 'VOID') {
+      return {
+        title: 'Void invoice',
+        message: `Voiding invoice ${inv.invoiceNumber} (${who}) cancels it against the customer's ledger. This action cannot be undone.`,
+        confirmPhrase: inv.invoiceNumber,
+        confirmLabel: 'Void invoice',
+        isDanger: true,
+      };
+    }
+    if (next === 'PAID') {
+      return {
+        title: 'Mark invoice paid',
+        message: `Records ${formatCurrency(inv.totalMinor)} settled on invoice ${inv.invoiceNumber} (${who})`
+          + `${load ? ` and moves load ${load.loadNumber} to Paid` : ''}.`,
+        confirmPhrase: undefined,
+        confirmLabel: 'Mark paid',
+        isDanger: false,
+      };
+    }
+    return {
+      title: 'Reopen a paid invoice',
+      message: `Moving ${inv.invoiceNumber} (${who}) from Paid to ${humanizeStatus(next)} reverses the recorded payment`
+        + `${load ? ` and returns load ${load.loadNumber} to Delivered` : ''}. Do this only to correct a settlement entered in error.`,
+      confirmPhrase: inv.invoiceNumber,
+      confirmLabel: `Move to ${humanizeStatus(next)}`,
+      isDanger: true,
+    };
+  })();
 
   const handleDelete = async () => {
     if (!currentUser || !deleteItem) return;
@@ -257,8 +306,18 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     {
       key: 'status',
       header: 'Status',
-      width: '10%',
-      render: (inv) => <Badge tone={statusTone(inv.status)}>{humanizeStatus(inv.status)}</Badge>,
+      width: '12%',
+      render: (inv) => (
+        <StatusPill
+          value={inv.status}
+          options={FORM_STATUS_OPTIONS}
+          subject={`Invoice ${inv.invoiceNumber}`}
+          // A voided invoice is closed to edits in the store, so the pill is a
+          // read-only badge there rather than a control that always errors.
+          disabled={inv.status === 'VOID'}
+          onChange={(next) => requestStatus(inv, next as InvoiceStatus)}
+        />
+      ),
     },
     {
       key: 'actions',
@@ -277,7 +336,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
           </button>
           {(inv.status === 'ISSUED' || inv.status === 'OVERDUE') && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleMarkPaid(inv); }}
+              onClick={(e) => { e.stopPropagation(); requestStatus(inv, 'PAID'); }}
               title="Mark paid"
               aria-label={`Mark invoice ${inv.invoiceNumber} paid`}
               className="p-1.5 rounded-ctl text-pos hover:bg-surface-2 transition-colors"
@@ -287,7 +346,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
           )}
           {inv.status === 'ISSUED' && (
             <button
-              onClick={(e) => { e.stopPropagation(); setVoidItem(inv); }}
+              onClick={(e) => { e.stopPropagation(); requestStatus(inv, 'VOID'); }}
               title="Void invoice"
               aria-label={`Void invoice ${inv.invoiceNumber}`}
               className="p-1.5 rounded-ctl text-warn hover:bg-surface-2 transition-colors"
@@ -330,13 +389,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           variant="hero"
-          label="Total accounts receivable"
+          label={`Accounts receivable · ${rangeLabel(dateRange)}`}
           value={formatCurrency(kpiData.totalAr)}
-          sub="Issued + overdue balance"
+          sub={`Issued + overdue across ${kpiData.count} ${kpiData.count === 1 ? 'invoice' : 'invoices'}`}
         />
         <StatCard
-          label="Collected this month"
-          value={formatCurrency(kpiData.collectedThisMonth)}
+          label={`Collected · ${rangeLabel(dateRange)}`}
+          value={formatCurrency(kpiData.collected)}
           sub="Paid invoices"
         />
         <StatCard
@@ -376,6 +435,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
                 value={search}
                 onChange={(v) => { setSearch(v); setCurrentPage(1); }}
                 placeholder="Search invoice #, customer…"
+              />
+            }
+            extra={
+              <DateRangeFilter
+                label="Filter invoices by issue date"
+                value={dateRange}
+                onChange={(r) => { setDateRange(r); setCurrentPage(1); }}
               />
             }
             meta={`Showing ${paginatedInvoices.length} of ${filteredInvoices.length}`}
@@ -506,14 +572,17 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
         </form>
       </Modal>
 
-      {voidItem && (
+      {statusChange && statusPrompt && (
         <ConfirmModal
-          isOpen={!!voidItem}
-          title="Void Invoice"
-          message={`Are you sure you want to void invoice ${voidItem.invoiceNumber}? This action cannot be undone.`}
-          isDanger={true}
-          onConfirm={handleVoid}
-          onCancel={() => setVoidItem(null)}
+          isOpen={!!statusChange}
+          title={statusPrompt.title}
+          message={statusPrompt.message}
+          confirmPhrase={statusPrompt.confirmPhrase}
+          confirmNoun="invoice number"
+          confirmLabel={statusPrompt.confirmLabel}
+          isDanger={statusPrompt.isDanger}
+          onConfirm={() => commitStatus(statusChange.inv, statusChange.next)}
+          onCancel={() => setStatusChange(null)}
           isLoading={isLoading}
         />
       )}
@@ -521,8 +590,11 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
       {deleteItem && (
         <ConfirmModal
           isOpen={!!deleteItem}
-          title="Delete Invoice"
-          message={`Are you sure you want to delete invoice ${deleteItem.invoiceNumber}?`}
+          title="Delete invoice"
+          message={`Deleting invoice ${deleteItem.invoiceNumber} (${deleteItem.customerName}) removes it and its settlement detail. This action cannot be undone.`}
+          confirmPhrase={deleteItem.invoiceNumber}
+          confirmNoun="invoice number"
+          confirmLabel="Delete invoice"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

@@ -13,6 +13,15 @@ const K = {
   USERS: 'nune_tms_users', AUDIT: 'nune_tms_audit', TOKEN: 'nune_tms_jwt_token',
 };
 
+/**
+ * Off: the store lives in memory and every reload starts from the seed data.
+ * Durability belongs to the backend, and a localStorage copy in the meantime
+ * only invents half-real states the API will never produce — an edit that
+ * outlives a refresh here would be a promise the finished product has to keep.
+ * Flip to true to mirror writes to disk again; nothing else needs to change.
+ */
+const PERSIST = false;
+
 class MockStore {
   private loads: Load[] = [];
   private drivers: Driver[] = [];
@@ -38,13 +47,27 @@ class MockStore {
     this.roles = this.fromStorage(K.ROLES, SEED_ROLES);
     this.users = this.fromStorage(K.USERS, SEED_USERS);
     this.auditLogs = this.fromStorage(K.AUDIT, SEED_AUDIT_LOGS);
+    if (!PERSIST) this.purgeStorage();
+  }
+
+  /** Drops data written by an earlier build so a stale copy cannot come back
+   *  if persistence is switched on again. The auth token is left alone — a
+   *  reload should reset the demo, not sign the operator out. */
+  private purgeStorage() {
+    try {
+      Object.entries(K).forEach(([name, key]) => { if (name !== 'TOKEN') localStorage.removeItem(key); });
+    } catch { /* storage unavailable; nothing to purge */ }
   }
 
   private fromStorage<T>(key: string, seed: T): T {
+    if (!PERSIST) return seed;
     try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : seed; } catch { return seed; }
   }
 
   private save(key: string, data: unknown) {
+    // The in-memory arrays are the source of truth either way; this only decides
+    // whether a copy is mirrored to disk. Subscribers are notified regardless.
+    if (!PERSIST) return this.notify();
     try { localStorage.setItem(key, JSON.stringify(data)); this.notify(); } catch (e) { console.error(e); }
   }
 
@@ -270,23 +293,87 @@ class MockStore {
   }
 
   // ─── EQUIPMENT CRUD ─────────────────────────────────────────────────────────
+
+  /**
+   * Truck ↔ trailer pairing is one-to-one and mirrored on both records, so it
+   * cannot be a plain field write: every change touches up to three units — the
+   * one being edited, its new partner, and whoever that partner was hooked to
+   * before. Keeping that here means no view can leave a half-written pairing.
+   */
+  private relink(unitId: string, partnerId?: string) {
+    const unit = this.equipment.find(e => e.id === unitId);
+    if (!unit) return;
+    if (unit.linkedEquipmentId === partnerId) return;
+
+    const unhook = (id?: string, from?: string) => {
+      if (!id) return;
+      const other = this.equipment.find(e => e.id === id);
+      if (other && (!from || other.linkedEquipmentId === from)) other.linkedEquipmentId = undefined;
+    };
+
+    unhook(unit.linkedEquipmentId, unitId);
+    unit.linkedEquipmentId = undefined;
+    if (!partnerId) return;
+
+    const partner = this.equipment.find(e => e.id === partnerId);
+    if (!partner) throw new Error('Linked unit not found');
+    // Dropping a trailer onto a truck that already had one is a legitimate
+    // move (you swap trailers), so steal it rather than refusing.
+    unhook(partner.linkedEquipmentId);
+    unit.linkedEquipmentId = partner.id;
+    partner.linkedEquipmentId = unit.id;
+  }
+
+  /** Rejects a pairing before anything is written, so a bad id cannot half-apply. */
+  private assertLinkable(type: Equipment['type'], partnerId?: string) {
+    if (!partnerId) return;
+    const partner = this.equipment.find(e => e.id === partnerId);
+    if (!partner) throw new Error('Linked unit not found.');
+    if (partner.type === type) throw new Error('A truck can only be linked to a trailer, and a trailer to a truck.');
+  }
+
   async createEquipment(data: Omit<Equipment, 'id' | 'tenantId' | 'createdAt'>, actor: User): Promise<Equipment> {
     await this.sim();
-    const unit: Equipment = { ...data, id: this.uid('eq'), tenantId: actor.tenantId, createdAt: new Date().toISOString() };
+    const { linkedEquipmentId, ...rest } = data;
+    this.assertLinkable(data.type, linkedEquipmentId);
+    const unit: Equipment = { ...rest, id: this.uid('eq'), tenantId: actor.tenantId, createdAt: new Date().toISOString() };
     this.equipment.push(unit);
+    this.relink(unit.id, linkedEquipmentId || undefined);
     this.save(K.EQUIPMENT, this.equipment);
     this.audit(actor, 'fleet.create', 'Equipment', unit.id, `Added ${unit.type} ${unit.unitNumber}`);
-    return unit;
+    return { ...unit };
   }
 
   async updateEquipment(equipId: string, data: Partial<Equipment>, actor: User): Promise<Equipment> {
     await this.sim();
     const idx = this.equipment.findIndex(e => e.id === equipId);
     if (idx < 0) throw new Error('Equipment not found');
-    this.equipment[idx] = { ...this.equipment[idx], ...data };
+    // `in` rather than a truthy check: an absent key means "leave the pairing
+    // alone", while an explicit undefined means "unlink".
+    const linkTouched = 'linkedEquipmentId' in data;
+    const { linkedEquipmentId, ...rest } = data;
+    const prevType = this.equipment[idx].type;
+    const nextType = data.type ?? prevType;
+    if (linkTouched) this.assertLinkable(nextType, linkedEquipmentId);
+    this.equipment[idx] = { ...this.equipment[idx], ...rest };
+    if (linkTouched) this.relink(equipId, linkedEquipmentId || undefined);
+    // Changing a truck into a trailer (or back) invalidates any existing pair.
+    else if (nextType !== prevType) this.relink(equipId, undefined);
     this.save(K.EQUIPMENT, this.equipment);
     this.audit(actor, 'fleet.update', 'Equipment', equipId, `Updated ${this.equipment[idx].unitNumber}`);
     return { ...this.equipment[idx] };
+  }
+
+  async updateEquipmentStatus(equipId: string, status: EquipmentStatus, actor: User): Promise<Equipment> {
+    await this.sim();
+    const unit = this.equipment.find(e => e.id === equipId);
+    if (!unit) throw new Error('Equipment not found');
+    const from = unit.status;
+    if (from === status) return { ...unit };
+    unit.status = status;
+    this.save(K.EQUIPMENT, this.equipment);
+    this.audit(actor, 'fleet.status', 'Equipment', equipId, `${unit.unitNumber} status ${from} → ${status}`);
+    return { ...unit };
   }
 
   async deleteEquipment(equipId: string, actor: User): Promise<void> {
@@ -295,6 +382,8 @@ class MockStore {
     if (!unit) throw new Error('Equipment not found');
     const activeLoad = this.loads.find(l => (l.truckId === equipId || l.trailerId === equipId) && ['DISPATCHED', 'IN_TRANSIT'].includes(l.status));
     if (activeLoad) throw new Error(`${unit.unitNumber} is on active load ${activeLoad.loadNumber}.`);
+    // Free the partner first, or it keeps pointing at a unit that no longer exists.
+    this.relink(equipId, undefined);
     this.equipment = this.equipment.filter(e => e.id !== equipId);
     this.save(K.EQUIPMENT, this.equipment);
     this.audit(actor, 'fleet.delete', 'Equipment', equipId, `Deleted ${unit.unitNumber}`);
@@ -391,6 +480,37 @@ class MockStore {
 
   async voidInvoice(invoiceId: string, actor: User): Promise<Invoice> {
     return this.updateInvoice(invoiceId, { status: 'VOID' }, actor);
+  }
+
+  /**
+   * Routing for the click-the-pill status control. PAID and VOID carry side
+   * effects (settlement figures, the load cascade) so they go through the
+   * dedicated methods rather than a raw field write — and leaving PAID has to
+   * undo what marking it wrote, or the ledger keeps a payment nobody claims.
+   */
+  async updateInvoiceStatus(invoiceId: string, status: InvoiceStatus, actor: User): Promise<Invoice> {
+    const current = this.invoices.find(i => i.id === invoiceId);
+    if (!current) throw new Error('Invoice not found');
+    if (current.status === status) return { ...current };
+    if (status === 'PAID') return this.markInvoicePaid(invoiceId, actor);
+    if (status === 'VOID') return this.voidInvoice(invoiceId, actor);
+
+    if (current.status === 'PAID') {
+      await this.sim();
+      current.status = status;
+      current.paidAmountMinor = 0;
+      const load = current.loadId ? this.loads.find(l => l.id === current.loadId) : undefined;
+      if (load && load.status === 'PAID') {
+        load.status = 'DELIVERED';
+        load.updatedAt = new Date().toISOString();
+        this.save(K.LOADS, this.loads);
+      }
+      this.save(K.INVOICES, this.invoices);
+      this.audit(actor, 'invoices.status', 'Invoice', invoiceId, `${current.invoiceNumber} PAID → ${status}, settlement reversed`);
+      return { ...current };
+    }
+
+    return this.updateInvoice(invoiceId, { status }, actor);
   }
 
   async markInvoicePaid(invoiceId: string, actor: User): Promise<Invoice> {

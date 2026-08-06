@@ -550,7 +550,10 @@ export const UsersTab: React.FC<UsersTabProps> = ({ onReload }) => {
         <ConfirmModal
           isOpen={!!deleteItem}
           title="Delete user account"
-          message={`Are you sure you want to delete ${deleteItem.name}?`}
+          message={`Deleting ${deleteItem.name} removes their account and sign-in access. This action cannot be undone.`}
+          confirmPhrase={deleteItem.name}
+          confirmNoun="user's name"
+          confirmLabel="Delete user"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

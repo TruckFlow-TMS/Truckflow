@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Load, Driver, Equipment } from '../../types/tms';
 import { mockStore } from '../../services/mockStore';
 import { useAuth } from '../../context/AuthContext';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Link2 } from 'lucide-react';
 import { Modal, Select, Button } from '../ui';
 
 interface AssignmentModalProps {
@@ -46,6 +46,23 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const pairedTrailer = equipment.find(
+    eq => eq.type === 'TRAILER' && eq.id === equipment.find(t => t.id === truckId)?.linkedEquipmentId,
+  );
+
+  /**
+   * Picking a tractor pre-fills the trailer it is hooked to. Only when the
+   * trailer field is still empty — a dispatcher who already chose a trailer
+   * meant it, and having the truck overwrite that choice would be worse than
+   * not helping at all.
+   */
+  const handlePickTruck = (nextTruckId: string) => {
+    setTruckId(nextTruckId);
+    if (trailerId) return;
+    const linked = equipment.find(t => t.id === nextTruckId)?.linkedEquipmentId;
+    if (linked) setTrailerId(linked);
   };
 
   const selectedDriver = drivers.find(d => d.id === driverId);
@@ -97,22 +114,39 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
         <Select
           label="Truck power unit"
           value={truckId}
-          onChange={e => setTruckId(e.target.value)}
+          onChange={e => handlePickTruck(e.target.value)}
           options={[
             { value: '', label: 'Unassigned' },
-            ...equipment.filter(eq => eq.type === 'TRUCK').map(eq => ({ value: eq.id, label: `${eq.unitNumber} (${eq.makeModel})` })),
+            ...equipment.filter(eq => eq.type === 'TRUCK').map(eq => {
+              const trailer = equipment.find(t => t.id === eq.linkedEquipmentId);
+              return {
+                value: eq.id,
+                label: `${eq.unitNumber} (${eq.makeModel})${trailer ? ` · pulls ${trailer.unitNumber}` : ''}`,
+              };
+            }),
           ]}
         />
 
-        <Select
-          label="Trailer unit"
-          value={trailerId}
-          onChange={e => setTrailerId(e.target.value)}
-          options={[
-            { value: '', label: 'Unassigned' },
-            ...equipment.filter(eq => eq.type === 'TRAILER').map(eq => ({ value: eq.id, label: eq.unitNumber })),
-          ]}
-        />
+        <div>
+          <Select
+            label="Trailer unit"
+            value={trailerId}
+            onChange={e => setTrailerId(e.target.value)}
+            options={[
+              { value: '', label: 'Unassigned' },
+              ...equipment.filter(eq => eq.type === 'TRAILER').map(eq => {
+                const truck = equipment.find(t => t.id === eq.linkedEquipmentId);
+                return { value: eq.id, label: truck ? `${eq.unitNumber} · linked to ${truck.unitNumber}` : eq.unitNumber };
+              }),
+            ]}
+          />
+          {pairedTrailer && trailerId === pairedTrailer.id && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-fg-3">
+              <Link2 size={12} className="shrink-0" />
+              Filled from the truck's linked trailer — change it if this run is different.
+            </p>
+          )}
+        </div>
       </form>
     </Modal>
   );
