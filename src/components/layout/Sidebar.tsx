@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, Kanban, Package, Users, Truck, Building2,
-  DollarSign, BarChart3, Settings,
+  DollarSign, BarChart3, Settings, Wallet,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -13,6 +13,7 @@ export type NavTab =
   | 'fleet'
   | 'customers'
   | 'invoices'
+  | 'payroll'
   | 'reports'
   | 'settings';
 
@@ -31,7 +32,7 @@ interface NavItem {
   badge?: boolean;
 }
 
-/** All 9 sections, original ids/labels/order. Groups are display-only. */
+/** All sections. Groups are display-only. */
 const GROUPS: { heading: string; items: NavItem[] }[] = [
   {
     heading: 'Operations',
@@ -53,6 +54,7 @@ const GROUPS: { heading: string; items: NavItem[] }[] = [
     heading: 'Revenue',
     items: [
       { id: 'invoices', label: 'Billing & Factoring', icon: <DollarSign size={15} /> },
+      { id: 'payroll', label: 'Driver Payroll', icon: <Wallet size={15} /> },
       { id: 'reports', label: 'Reports & Profitability', icon: <BarChart3 size={15} /> },
     ],
   },

@@ -15,6 +15,7 @@ import { DriversView } from './components/drivers/DriversView';
 import { FleetView } from './components/fleet/FleetView';
 import { CustomersView } from './components/customers/CustomersView';
 import { BillingView } from './components/billing/BillingView';
+import { PayrollView } from './components/payroll/PayrollView';
 import { ReportsView } from './components/reports/ReportsView';
 import { SettingsView } from './components/settings/SettingsView';
 
@@ -268,6 +269,8 @@ export const AppContent: React.FC = () => {
           {activeTab === 'customers' && <CustomersView customers={customers} invoices={invoices} onReload={reloadData} />}
 
           {activeTab === 'invoices' && <BillingView invoices={invoices} loads={loads} customers={customers} onReload={reloadData} />}
+
+          {activeTab === 'payroll' && <PayrollView drivers={drivers} loads={loads} onReload={reloadData} />}
 
           {activeTab === 'reports' && <ReportsView loads={loads} />}
 

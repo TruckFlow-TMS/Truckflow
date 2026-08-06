@@ -303,3 +303,41 @@ export interface AuditLogEntry {
   details: string;
   ipAddress: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Driver Payroll & Settlement
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PayrollAddition {
+  id: string;
+  description: string;
+  amountMinor: number;
+}
+
+export interface PayrollDeduction {
+  id: string;
+  description: string;
+  amountMinor: number;
+}
+
+export interface DriverPayrollRecord {
+  id: string;
+  tenantId: string;
+  payrollNumber: string;
+  driverId: string;
+  driverName: string;
+  driverPayType: DriverPayType;
+  driverPayRateValue: number;
+  payPeriodStart: string;
+  payPeriodEnd: string;
+  payDate: string;
+  loadIds: string[];
+  totalMiles: number;
+  totalGrossRateMinor: number;
+  basePayMinor: number;
+  additions: PayrollAddition[];
+  deductions: PayrollDeduction[];
+  netPayMinor: number;
+  status: 'DRAFT' | 'PROCESSED' | 'PAID';
+  notes?: string;
+  createdAt: string;
+}
