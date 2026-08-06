@@ -199,7 +199,7 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
     {
       key: 'actions',
       header: '',
-      width: '5%',
+      width: '120px',
       align: 'right',
       render: (ld) => (
         <div className="flex items-center justify-end gap-0.5">

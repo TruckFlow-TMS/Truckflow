@@ -299,7 +299,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
     {
       key: 'actions',
       header: '',
-      width: '8%',
+      width: '100px',
       align: 'right',
       render: (d) => (
         <div className="flex items-center justify-end gap-0.5">

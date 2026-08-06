@@ -322,7 +322,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     {
       key: 'actions',
       header: '',
-      width: '9%',
+      width: '130px',
       align: 'right',
       render: (inv) => (
         <div className="flex items-center justify-end gap-0.5">

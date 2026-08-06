@@ -293,7 +293,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
     {
       key: 'actions',
       header: '',
-      width: '8%',
+      width: '100px',
       align: 'right',
       render: (c) => (
         <div className="flex items-center justify-end gap-0.5">

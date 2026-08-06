@@ -291,7 +291,7 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
     base.push({
       key: 'actions',
       header: '',
-      width: '7%',
+      width: '100px',
       align: 'right',
       render: (eq) => (
         <div className="flex items-center justify-end gap-0.5">
