@@ -330,21 +330,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
-          variant="hero"
           label="Broker & customer accounts"
           value={String(kpiData.total)}
           sub={`${kpiData.active} active · ${kpiData.total - kpiData.active} inactive`}
-        />
-        <StatCard
-          label="Authorities on file"
-          value={String(kpiData.withMc)}
-          sub={
-            kpiData.withMc < kpiData.total
-              ? <span className="text-warn font-semibold">{kpiData.total - kpiData.withMc} missing an MC number</span>
-              : 'Every account has an MC number'
-          }
         />
         <TopListCard
           label="Top clients by revenue"
