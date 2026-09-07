@@ -183,6 +183,7 @@ class Customer(Base, MultiTenantMixin):
     state = Column(String(32), nullable=True)
     zip = Column(String(16), nullable=True)
     payment_terms_days = Column(Integer, default=30)
+    factoring_company_name = Column(String(255), nullable=True)
     credit_limit_minor = Column(Integer, default=0)
     average_days_to_pay = Column(Integer, nullable=True)
     rating = Column(Integer, nullable=True)

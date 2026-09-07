@@ -308,13 +308,18 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
     {
       key: 'payment',
       header: 'Payment & Terms',
-      width: '12%',
+      width: '13%',
       render: (c) => (
         <>
           <span className="block font-medium">{paymentLabel(c.paymentOption) || <span className="text-fg-3">—</span>}</span>
           <span className="block text-[11px] text-fg-3 mt-px tnum">
             {c.paymentTermsDays !== undefined ? `${c.paymentTermsDays} days limit` : '30 days limit'}
           </span>
+          {c.factoringCompanyName && (
+            <span className="block text-[11px] text-accent mt-0.5 font-medium truncate max-w-[130px]" title={c.factoringCompanyName}>
+              {c.factoringCompanyName}
+            </span>
+          )}
         </>
       ),
     },
@@ -555,6 +560,15 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
               setFormData({ ...formData, paymentTermsDays: isNaN(val) ? 30 : val });
             }}
           />
+          <div className="md:col-span-2">
+            <Input
+              label="Factoring company name (Optional)"
+              placeholder="e.g. RTS Financial, Triumph Business Capital…"
+              hint="Optional — factoring company/factory name for this broker"
+              value={formData.factoringCompanyName || ''}
+              onChange={e => setFormData({ ...formData, factoringCompanyName: e.target.value })}
+            />
+          </div>
           <div className="md:col-span-2">
             <Input
               label="Credit limit ($)"

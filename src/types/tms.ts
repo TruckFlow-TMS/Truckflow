@@ -243,6 +243,7 @@ export interface Customer {
   zip?: string;
   paymentOption?: PaymentOption;
   paymentTermsDays?: number;
+  factoringCompanyName?: string;
   creditLimitMinor?: number;
   averageDaysToPay?: number;
   rating?: number;

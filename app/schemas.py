@@ -94,6 +94,7 @@ class CustomerBase(BaseModel):
     state: Optional[str] = None
     zip: Optional[str] = None
     payment_terms_days: int = 30
+    factoring_company_name: Optional[str] = None
     credit_limit_minor: int = 0
     average_days_to_pay: Optional[int] = None
     rating: Optional[int] = None

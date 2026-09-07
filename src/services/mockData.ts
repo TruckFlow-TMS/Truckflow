@@ -249,7 +249,7 @@ export const SEED_CUSTOMERS: Customer[] = [
     id: 'cust-1', tenantId: 'tenant-nune-express', name: 'C.H. Robinson Worldwide',
     mcNumber: 'MC-142857', dotNumber: '384821', contactPerson: 'Tom Harkness', contactEmail: 'freight@chrobinson.com',
     contactPhone: '(800) 323-7587', billingAddress: '14701 Charlson Rd', city: 'Eden Prairie',
-    state: 'MN', zip: '55347', paymentOption: 'FACTORING', paymentTermsDays: 30, creditLimitMinor: 10000000,
+    state: 'MN', zip: '55347', paymentOption: 'FACTORING', paymentTermsDays: 30, factoringCompanyName: 'RTS Financial', creditLimitMinor: 10000000,
     averageDaysToPay: 24, rating: 4.8, isActive: true, createdAt: '2024-01-01T00:00:00Z',
   },
   {
@@ -270,7 +270,7 @@ export const SEED_CUSTOMERS: Customer[] = [
     id: 'cust-4', tenantId: 'tenant-nune-express', name: 'Coyote Logistics',
     mcNumber: 'MC-419380', dotNumber: '2136495', contactPerson: 'Lisa Tran', contactEmail: 'freight@coyote.com',
     contactPhone: '(877) 268-9683', billingAddress: '2545 W Diversey Pkwy', city: 'Chicago',
-    state: 'IL', zip: '60647', paymentOption: 'FACTORING', paymentTermsDays: 30, creditLimitMinor: 7500000,
+    state: 'IL', zip: '60647', paymentOption: 'FACTORING', paymentTermsDays: 30, factoringCompanyName: 'Triumph Business Capital', creditLimitMinor: 7500000,
     averageDaysToPay: 27, rating: 4.3, isActive: true, createdAt: '2024-04-10T00:00:00Z',
   },
   {
