@@ -680,7 +680,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             />
           </div>
           <Input
-            label="Subtotal ($)"
+            label="INV Amount ($)"
             required
             type="number"
             step="0.01"
