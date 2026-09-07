@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Truck,
   ArrowRight,
+  ArrowLeft,
   Plus,
   CheckCircle2,
   XCircle,
@@ -63,23 +64,54 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
     { status: 'PAID', title: '6. Paid' },
   ];
 
+  const getStageIndex = (status: LoadStatus): number => {
+    if (status === 'OPEN') return 0;
+    if (status === 'DISPATCHED') return 1;
+    if (['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(status)) return 2;
+    if (['DELIVERED', 'DELIVERED_POD'].includes(status)) return 3;
+    if (status === 'INVOICED') return 4;
+    if (status === 'PAID') return 5;
+    return 0;
+  };
+
   const handleAdvanceStatus = async (load: Load, targetStatus: LoadStatus) => {
     if (!currentUser) return;
     setErrorMessage(null);
+
+    const currentIdx = getStageIndex(load.status);
+    const targetIdx = getStageIndex(targetStatus);
+    const diff = targetIdx - currentIdx;
+
+    if (Math.abs(diff) !== 1) {
+      const colTitles = ['1. Unassigned', '2. Dispatch', '3. Transit', '4. Delivered', '5. Invoiced', '6. Paid'];
+      const msg = `Loads can only move 1 stage at a time (forward or backward). Cannot move from ${colTitles[currentIdx]} directly to ${colTitles[targetIdx]}.`;
+      setErrorMessage(msg);
+      showToast('error', 'Loads can only move 1 stage at a time');
+      return;
+    }
+
+    // If target status is DISPATCHED but driver isn't assigned, open assign modal
+    if (targetStatus === 'DISPATCHED' && !load.driverId) {
+      onOpenAssignModal(load);
+      showToast('info', `Please assign a driver to dispatch Load #${load.loadNumber}`);
+      return;
+    }
+
     try {
       if (targetStatus === 'INVOICED') {
         await mockStore.generateInvoice(load.id, currentUser);
       } else {
         await mockStore.updateLoadStatus(load.id, targetStatus, currentUser);
       }
-      showToast('success', `Moved Load #${load.loadNumber} to ${humanizeStatus(targetStatus)}`);
+      const direction = diff === 1 ? 'forward' : 'backward';
+      showToast('success', `Moved Load #${load.loadNumber} ${direction} to ${humanizeStatus(targetStatus)}`);
       onReload();
     } catch (err: any) {
       setErrorMessage(err.message || 'Transition guard blocked action');
     }
   };
 
-  const handleDrop = async (e: React.DragEvent, targetStatus: LoadStatus) => {
+  const handleDrop = async (e: React.DragEvent, targetStatus: LoadStatus, targetColIdx: number) => {
     e.preventDefault();
     setDragOverStatus(null);
     const loadId = e.dataTransfer.getData('text/plain') || draggingLoadId;
@@ -87,6 +119,17 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
     const targetLoad = loads.find(l => l.id === loadId);
     if (!targetLoad) return;
     if (targetLoad.status === targetStatus) return;
+
+    const currentIdx = getStageIndex(targetLoad.status);
+    const colTitles = ['1. Unassigned', '2. Dispatch', '3. Transit', '4. Delivered', '5. Invoiced', '6. Paid'];
+
+    if (Math.abs(targetColIdx - currentIdx) !== 1) {
+      const msg = `Loads can only move 1 stage at a time (e.g. from ${colTitles[currentIdx]} to ${colTitles[Math.min(5, Math.max(0, currentIdx + (targetColIdx > currentIdx ? 1 : -1)))]}). Cannot jump directly to ${colTitles[targetColIdx]}.`;
+      setErrorMessage(msg);
+      showToast('error', 'Loads can only move 1 stage at a time');
+      setDraggingLoadId(null);
+      return;
+    }
 
     await handleAdvanceStatus(targetLoad, targetStatus);
     setDraggingLoadId(null);
@@ -182,7 +225,7 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
       {viewMode === 'kanban' && (
         <div className="overflow-x-auto pb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 min-w-[1200px]">
-            {columns.map((col) => {
+            {columns.map((col, colIdx) => {
               const colLoads = loads.filter((l) => {
                 if (col.status === 'IN_TRANSIT') {
                   return ['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(l.status);
@@ -193,6 +236,12 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                 return l.status === col.status;
               });
 
+              const draggingLoad = loads.find((l) => l.id === draggingLoadId);
+              const draggingStageIdx = draggingLoad ? getStageIndex(draggingLoad.status) : -1;
+              const isAdjacentStage = draggingStageIdx !== -1 && Math.abs(colIdx - draggingStageIdx) === 1;
+              const isSameStage = draggingStageIdx !== -1 && colIdx === draggingStageIdx;
+              const isInvalidTarget = draggingStageIdx !== -1 && !isAdjacentStage && !isSameStage;
+
               const isDragTarget = dragOverStatus === col.status;
 
               return (
@@ -200,7 +249,9 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                   key={col.status}
                   onDragOver={(e) => {
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
+                    if (draggingLoad) {
+                      e.dataTransfer.dropEffect = isAdjacentStage ? 'move' : 'none';
+                    }
                     if (dragOverStatus !== col.status) setDragOverStatus(col.status);
                   }}
                   onDragLeave={(e) => {
@@ -208,13 +259,19 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                       setDragOverStatus(null);
                     }
                   }}
-                  onDrop={(e) => handleDrop(e, col.status)}
-                  className="flex-1 flex flex-col"
+                  onDrop={(e) => handleDrop(e, col.status, colIdx)}
+                  className={`flex-1 flex flex-col transition-opacity ${
+                    draggingLoadId && isInvalidTarget ? 'opacity-60' : 'opacity-100'
+                  }`}
                 >
                   <Card
                     padded={false}
                     className={`flex flex-col min-h-[550px] transition-all duration-200 ${
-                      isDragTarget ? 'border-accent ring-2 ring-accent/30 bg-accent-weak/15 shadow-hero' : ''
+                      isDragTarget && isAdjacentStage
+                        ? 'border-accent ring-2 ring-accent/30 bg-accent-weak/15 shadow-hero'
+                        : isDragTarget && isInvalidTarget
+                        ? 'border-danger ring-2 ring-danger/30 bg-danger-bg/20'
+                        : ''
                     }`}
                     header={
                       <div className="flex items-center justify-between gap-2">
@@ -323,48 +380,98 @@ export const DispatchBoardView: React.FC<DispatchBoardViewProps> = ({
                             </label>
                           )}
 
-                          {/* Stage Transition Buttons */}
-                          {ld.status === 'OPEN' && (
-                            <button onClick={() => onOpenAssignModal(ld)} className={stageAction}>
-                              <span>Dispatch</span>
-                              <ArrowRight size={11} />
-                            </button>
-                          )}
+                          {/* Stage Transition Action Buttons (1 Step Backward & 1 Step Forward) */}
+                          <div className="flex items-center gap-1">
+                            {/* 1-Step Backward Buttons */}
+                            {ld.status === 'DISPATCHED' && (
+                              <button
+                                onClick={() => handleAdvanceStatus(ld, 'OPEN')}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-ctl text-[10px] font-medium bg-surface border border-bd text-fg-2 hover:bg-surface-2 hover:text-fg transition"
+                                title="Move back to Unassigned"
+                              >
+                                <ArrowLeft size={10} />
+                                <span>Back</span>
+                              </button>
+                            )}
+                            {['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(ld.status) && (
+                              <button
+                                onClick={() => handleAdvanceStatus(ld, 'DISPATCHED')}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-ctl text-[10px] font-medium bg-surface border border-bd text-fg-2 hover:bg-surface-2 hover:text-fg transition"
+                                title="Move back to Dispatch"
+                              >
+                                <ArrowLeft size={10} />
+                                <span>Back</span>
+                              </button>
+                            )}
+                            {['DELIVERED', 'DELIVERED_POD'].includes(ld.status) && (
+                              <button
+                                onClick={() => handleAdvanceStatus(ld, 'IN_TRANSIT')}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-ctl text-[10px] font-medium bg-surface border border-bd text-fg-2 hover:bg-surface-2 hover:text-fg transition"
+                                title="Move back to Transit"
+                              >
+                                <ArrowLeft size={10} />
+                                <span>Back</span>
+                              </button>
+                            )}
+                            {ld.status === 'INVOICED' && (
+                              <button
+                                onClick={() => handleAdvanceStatus(ld, 'DELIVERED')}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-ctl text-[10px] font-medium bg-surface border border-bd text-fg-2 hover:bg-surface-2 hover:text-fg transition"
+                                title="Move back to Delivered"
+                              >
+                                <ArrowLeft size={10} />
+                                <span>Back</span>
+                              </button>
+                            )}
+                            {ld.status === 'PAID' && (
+                              <button
+                                onClick={() => handleAdvanceStatus(ld, 'INVOICED')}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-ctl text-[10px] font-medium bg-surface border border-bd text-fg-2 hover:bg-surface-2 hover:text-fg transition"
+                                title="Move back to Invoiced"
+                              >
+                                <ArrowLeft size={10} />
+                                <span>Reopen</span>
+                              </button>
+                            )}
 
-                          {ld.status === 'DISPATCHED' && (
-                            <button onClick={() => handleAdvanceStatus(ld, 'IN_TRANSIT')} className={stageAction}>
-                              <span>Transit</span>
-                              <ArrowRight size={11} />
-                            </button>
-                          )}
-
-                          {['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(ld.status) && (
-                            <button onClick={() => handleAdvanceStatus(ld, 'DELIVERED')} className={stageAction}>
-                              <span>Delivered</span>
-                              <CheckCircle2 size={11} />
-                            </button>
-                          )}
-
-                          {['DELIVERED', 'DELIVERED_POD'].includes(ld.status) && (
-                            <button onClick={() => handleAdvanceStatus(ld, 'INVOICED')} className={stageAction}>
-                              <span>Invoice</span>
-                              <FileText size={11} />
-                            </button>
-                          )}
-
-                          {ld.status === 'INVOICED' && (
-                            <button onClick={() => handleAdvanceStatus(ld, 'PAID')} className={stageAction}>
-                              <span>Paid</span>
-                              <DollarSign size={11} />
-                            </button>
-                          )}
-
-                          {ld.status === 'PAID' && (
-                            <span className="text-pos font-semibold text-[10px] inline-flex items-center gap-1">
-                              <CheckCircle2 size={11} />
-                              <span>Closed</span>
-                            </span>
-                          )}
+                            {/* 1-Step Forward Buttons */}
+                            {ld.status === 'OPEN' && (
+                              <button onClick={() => onOpenAssignModal(ld)} className={stageAction}>
+                                <span>Dispatch</span>
+                                <ArrowRight size={11} />
+                              </button>
+                            )}
+                            {ld.status === 'DISPATCHED' && (
+                              <button onClick={() => handleAdvanceStatus(ld, 'IN_TRANSIT')} className={stageAction}>
+                                <span>Transit</span>
+                                <ArrowRight size={11} />
+                              </button>
+                            )}
+                            {['AT_PICKUP', 'LOADED', 'IN_TRANSIT', 'AT_DELIVERY'].includes(ld.status) && (
+                              <button onClick={() => handleAdvanceStatus(ld, 'DELIVERED')} className={stageAction}>
+                                <span>Delivered</span>
+                                <CheckCircle2 size={11} />
+                              </button>
+                            )}
+                            {['DELIVERED', 'DELIVERED_POD'].includes(ld.status) && (
+                              <button onClick={() => handleAdvanceStatus(ld, 'INVOICED')} className={stageAction}>
+                                <span>Invoice</span>
+                                <FileText size={11} />
+                              </button>
+                            )}
+                            {ld.status === 'INVOICED' && (
+                              <button onClick={() => handleAdvanceStatus(ld, 'PAID')} className={stageAction}>
+                                <span>Paid</span>
+                                <DollarSign size={11} />
+                              </button>
+                            )}
+                            {ld.status === 'PAID' && (
+                              <span className="text-pos font-semibold text-[10px] inline-flex items-center gap-1">
+                                <CheckCircle2 size={11} />
+                                <span>Closed</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

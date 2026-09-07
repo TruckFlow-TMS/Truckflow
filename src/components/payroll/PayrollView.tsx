@@ -270,7 +270,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
               >
                 {drivers.map(d => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({d.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : 'Company Driver'})
+                    {d.name} ({d.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : d.employmentType === 'COMPANY_DRIVER' ? 'Company Driver' : 'Driver'})
                   </option>
                 ))}
               </select>
@@ -708,7 +708,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                 <div>
                   <p className="text-[10px] uppercase font-bold text-slate-500">Driver Information</p>
                   <p className="font-bold text-slate-900 text-[13px]">{selectedDriver.name}</p>
-                  <p className="text-slate-700">Type: {selectedDriver.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : 'Company Driver'}</p>
+                  <p className="text-slate-700">Type: {selectedDriver.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : selectedDriver.employmentType === 'COMPANY_DRIVER' ? 'Company Driver' : 'Unspecified'}</p>
                 </div>
 
                 <div>

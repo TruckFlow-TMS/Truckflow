@@ -170,7 +170,7 @@ export interface Driver {
   address: string;
   /** Nine digits, no separators. */
   socialSecurityNumber: string;
-  employmentType: EmploymentType;
+  employmentType?: EmploymentType;
   /** Owner operators only — both optional, since a new O/O may not have filed yet. */
   businessName?: string;
   einNumber?: string;

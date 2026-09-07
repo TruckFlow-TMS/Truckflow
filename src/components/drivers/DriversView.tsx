@@ -117,9 +117,6 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
       setEditItem(null);
       setFormData({
         status: 'AVAILABLE',
-        employmentType: 'COMPANY_DRIVER',
-        // Seeded rather than left to the Select's fallback display, or a driver
-        // saved without touching the field would persist no class at all.
         cdlClass: 'A',
         cdlEndorsements: [],
         documents: [],
@@ -253,7 +250,11 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
       width: '13%',
       render: (d) => (
         <span className="px-2 py-0.5 rounded text-[10.5px] font-medium bg-surface-2 text-fg-2 border border-bd">
-          {d.employmentType === 'COMPANY_DRIVER' ? 'Company driver' : 'Owner operator'}
+          {d.employmentType === 'COMPANY_DRIVER'
+            ? 'Company driver'
+            : d.employmentType === 'OWNER_OPERATOR'
+            ? 'Owner operator'
+            : 'Unspecified'}
         </span>
       ),
     },
@@ -506,18 +507,18 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
 
           <FormSection title="Employment" icon={<Briefcase size={13} className="text-accent" />}>
             <Select
-              label="Employment type*"
-              required
-              value={formData.employmentType || 'COMPANY_DRIVER'}
+              label="Employment type"
+              value={formData.employmentType || ''}
               // Switching back to company driver drops the business details
               // rather than hiding them and saving them anyway.
               onChange={e => {
                 const employmentType = e.target.value as Driver['employmentType'];
                 setFormData(employmentType === 'OWNER_OPERATOR'
                   ? { ...formData, employmentType }
-                  : { ...formData, employmentType, businessName: undefined, einNumber: undefined });
+                  : { ...formData, employmentType: employmentType || undefined, businessName: undefined, einNumber: undefined });
               }}
               options={[
+                { value: '', label: 'Select employment type (Optional)' },
                 { value: 'COMPANY_DRIVER', label: 'Company driver' },
                 { value: 'OWNER_OPERATOR', label: 'Owner operator' },
               ]}
