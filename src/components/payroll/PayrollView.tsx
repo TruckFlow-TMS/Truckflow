@@ -283,7 +283,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                     <Avatar name={selectedDriver.name} size={28} />
                     <div>
                       <h4 className="font-bold text-fg text-[13px]">{selectedDriver.name}</h4>
-                      <p className="text-[11px] text-fg-3">{selectedDriver.email}</p>
+                      <p className="text-[11.5px] font-medium text-fg-2 mt-0.5">{selectedDriver.address || 'Address on file'}</p>
+                      <p className="text-[10.5px] text-fg-3 mt-0.5">{selectedDriver.email} • {selectedDriver.phone}</p>
                     </div>
                   </div>
                   <Badge tone={selectedDriver.status === 'AVAILABLE' ? 'pos' : 'neutral'}>
@@ -530,7 +531,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                       <td className="p-2.5 font-bold text-accent tnum">{ld.loadNumber}</td>
                       <td className="p-2.5 tnum text-fg-2">{ld.deliveryDate || '2026-02-01'}</td>
                       <td className="p-2.5 text-fg font-medium">
-                        {ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}
+                        <span className="block font-semibold">{ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}</span>
+                        <span className="block text-[11px] text-fg-3 tnum font-mono">Load #: {ld.loadNumber}</span>
                       </td>
                       <td className="p-2.5 text-right tnum font-semibold">{ld.loadedMiles} mi</td>
                       <td className="p-2.5 text-right tnum font-semibold text-fg">
@@ -707,8 +709,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
               <div className="grid grid-cols-2 gap-4 p-3 bg-slate-100 rounded border border-slate-300 text-[11.5px]">
                 <div>
                   <p className="text-[10px] uppercase font-bold text-slate-500">Driver Information</p>
-                  <p className="font-bold text-slate-900 text-[13px]">{selectedDriver.name}</p>
-                  <p className="text-slate-700">Type: {selectedDriver.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : selectedDriver.employmentType === 'COMPANY_DRIVER' ? 'Company Driver' : 'Unspecified'}</p>
+                  <p className="font-bold text-slate-900 text-[13.5px]">{selectedDriver.name}</p>
+                  <p className="text-[11.5px] font-semibold text-slate-800 mt-0.5">{selectedDriver.address || 'Address on file'}</p>
+                  <p className="text-slate-600 mt-0.5">Type: {selectedDriver.employmentType === 'OWNER_OPERATOR' ? 'Owner Operator' : selectedDriver.employmentType === 'COMPANY_DRIVER' ? 'Company Driver' : 'Unspecified'}</p>
                 </div>
 
                 <div>
@@ -751,10 +754,16 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                       }
 
                       return (
-                        <tr key={ld.id}>
-                          <td className="p-2 font-bold border-r border-slate-200">{ld.loadNumber}</td>
+                        <tr key={ld.id} className="align-top">
+                          <td className="p-2 border-r border-slate-200">
+                            <span className="font-bold text-slate-900 block">{ld.loadNumber}</span>
+                            <span className="text-[9.5px] font-sans font-medium text-slate-500 block mt-0.5">Ref: {ld.brokerReference || 'N/A'}</span>
+                          </td>
                           <td className="p-2 border-r border-slate-200">{ld.deliveryDate || '2026-02-01'}</td>
-                          <td className="p-2 border-r border-slate-200 font-sans">{ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}</td>
+                          <td className="p-2 border-r border-slate-200 font-sans">
+                            <span className="font-semibold text-slate-900 block">{ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}</span>
+                            <span className="text-[10px] font-bold font-mono text-slate-600 block mt-0.5">Load #: {ld.loadNumber}</span>
+                          </td>
                           <td className="p-2 text-right border-r border-slate-200 font-semibold">{ld.loadedMiles} mi</td>
                           <td className="p-2 text-right border-r border-slate-200">${(ld.rateMinor / 100).toFixed(2)}</td>
                           <td className="p-2 text-right font-bold text-slate-900">${(loadPayMinor / 100).toFixed(2)}</td>
