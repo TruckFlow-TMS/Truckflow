@@ -172,10 +172,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
       setFormData(customer);
     } else {
       setEditItem(null);
-      // New accounts open active; pausing one is a click on the status pill.
+      // New accounts open active; default payment terms / time limit is 30 days.
       setFormData({
         isActive: true,
         paymentOption: 'CHECK',
+        paymentTermsDays: 30,
       });
     }
     setShowModal(true);
@@ -306,9 +307,16 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
     },
     {
       key: 'payment',
-      header: 'Payment',
-      width: '9%',
-      render: (c) => <span>{paymentLabel(c.paymentOption) || <span className="text-fg-3">—</span>}</span>,
+      header: 'Payment & Terms',
+      width: '12%',
+      render: (c) => (
+        <>
+          <span className="block font-medium">{paymentLabel(c.paymentOption) || <span className="text-fg-3">—</span>}</span>
+          <span className="block text-[11px] text-fg-3 mt-px tnum">
+            {c.paymentTermsDays !== undefined ? `${c.paymentTermsDays} days limit` : '30 days limit'}
+          </span>
+        </>
+      ),
     },
     {
       key: 'status',
@@ -533,6 +541,19 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
             options={PAYMENT_OPTIONS}
             value={formData.paymentOption || 'CHECK'}
             onChange={e => setFormData({ ...formData, paymentOption: e.target.value as PaymentOption })}
+          />
+          <Input
+            label="Time limit / Payment terms (days)*"
+            type="number"
+            required
+            min="1"
+            className="tnum"
+            hint="Default is 30 days"
+            value={formData.paymentTermsDays !== undefined ? formData.paymentTermsDays : 30}
+            onChange={e => {
+              const val = parseInt(e.target.value, 10);
+              setFormData({ ...formData, paymentTermsDays: isNaN(val) ? 30 : val });
+            }}
           />
           <div className="md:col-span-2">
             <Input

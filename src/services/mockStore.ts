@@ -450,7 +450,11 @@ class MockStore {
 
   async createInvoice(data: Omit<Invoice, 'id' | 'tenantId' | 'createdAt'>, actor: User): Promise<Invoice> {
     await this.sim();
-    const inv: Invoice = { ...data, id: this.uid('inv'), tenantId: actor.tenantId, createdAt: new Date().toISOString() };
+    let invNum = (data.invoiceNumber || '').trim();
+    if (!invNum.toUpperCase().startsWith('INV-')) {
+      invNum = `INV-${invNum ? invNum.replace(/^INV-?/i, '') : Date.now().toString().slice(-6)}`;
+    }
+    const inv: Invoice = { ...data, invoiceNumber: invNum, id: this.uid('inv'), tenantId: actor.tenantId, createdAt: new Date().toISOString() };
     this.invoices = [inv, ...this.invoices];
     this.save(K.INVOICES, this.invoices);
     this.audit(actor, 'invoices.create', 'Invoice', inv.id, `Manual invoice ${inv.invoiceNumber}`);

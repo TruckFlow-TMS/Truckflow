@@ -124,10 +124,16 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     } else {
       setEditItem(null);
       setTypedLoadNumber('');
+      const todayStr = new Date().toISOString().split('T')[0];
+      const defaultDueStr = new Date(Date.now() + 30 * 864e5).toISOString().split('T')[0];
       setFormData({
-        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+        invoiceNumber: 'INV-',
         status: 'DRAFT',
-        issueDate: new Date().toISOString().split('T')[0]
+        issueDate: todayStr,
+        dueDate: defaultDueStr,
+        subtotalMinor: 0,
+        totalMinor: 0,
+        driverPayMinor: 0,
       });
     }
     setShowModal(true);
@@ -161,11 +167,35 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
 
     setIsLoading(true);
     try {
+      const selectedCust = customers.find(c => c.id === formData.customerId);
+      const custName = selectedCust?.name || formData.customerName || (formData.customerId ? formData.customerId : 'Manual Customer');
+      const todayStr = new Date().toISOString().split('T')[0];
+      const defaultDueStr = new Date(Date.now() + (selectedCust?.paymentTermsDays || 30) * 864e5).toISOString().split('T')[0];
+
+      let invNum = (formData.invoiceNumber || '').trim();
+      if (!invNum || invNum === 'INV-') {
+        invNum = `INV-${Date.now().toString().slice(-6)}`;
+      } else if (!invNum.toUpperCase().startsWith('INV-')) {
+        invNum = `INV-${invNum.replace(/^INV-?/i, '')}`;
+      }
+
+      const payload = {
+        ...formData,
+        invoiceNumber: invNum,
+        customerName: custName,
+        subtotalMinor: formData.subtotalMinor || 0,
+        accessorialsMinor: formData.accessorialsMinor || 0,
+        totalMinor: formData.totalMinor || formData.subtotalMinor || 0,
+        status: formData.status || 'DRAFT',
+        issueDate: formData.issueDate || todayStr,
+        dueDate: formData.dueDate || defaultDueStr,
+      };
+
       if (editItem) {
-        await mockStore.updateInvoice(editItem.id, formData, currentUser);
+        await mockStore.updateInvoice(editItem.id, payload, currentUser);
         showToast('success', 'Invoice updated successfully');
       } else {
-        await mockStore.createInvoice(formData as Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>, currentUser);
+        await mockStore.createInvoice(payload as Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>, currentUser);
         showToast('success', 'Invoice created successfully');
       }
       onReload();
@@ -539,8 +569,16 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             label="Invoice number"
             required
             className="tnum"
-            value={formData.invoiceNumber || ''}
-            onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
+            placeholder="INV-..."
+            value={formData.invoiceNumber ?? 'INV-'}
+            onChange={e => {
+              let val = e.target.value;
+              if (!val.toUpperCase().startsWith('INV-')) {
+                const clean = val.replace(/^INV-?/i, '');
+                val = clean ? `INV-${clean}` : 'INV-';
+              }
+              setFormData({ ...formData, invoiceNumber: val });
+            }}
           />
           {(() => {
             const matchedLoad = loads.find(l => l.loadNumber.toLowerCase() === typedLoadNumber.trim().toLowerCase());
@@ -570,18 +608,25 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
                     setTypedLoadNumber(val);
                     const matched = loads.find(l => l.loadNumber.toLowerCase() === val.trim().toLowerCase());
                     if (matched) {
+                      const defaultInvNum = `INV-${matched.loadNumber.replace(/^NE-?/i, '')}`;
                       setFormData({
                         ...formData,
                         loadId: matched.id,
+                        invoiceNumber: defaultInvNum,
                         customerId: matched.brokerId || formData.customerId,
                         subtotalMinor: matched.rateMinor,
                         totalMinor: matched.rateMinor,
                         driverPayMinor: calculateDriverPay(matched.rateMinor),
                       });
                     } else {
+                      const trimmed = val.trim();
+                      const defaultInvNum = trimmed
+                        ? (trimmed.toUpperCase().startsWith('INV-') ? trimmed : `INV-${trimmed}`)
+                        : (formData.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`);
                       setFormData({
                         ...formData,
-                        loadId: val.trim() ? (val.trim().startsWith('custom-') ? val.trim() : `custom-${val.trim()}`) : ''
+                        loadId: trimmed ? (trimmed.startsWith('custom-') ? trimmed : `custom-${trimmed}`) : '',
+                        invoiceNumber: defaultInvNum,
                       });
                     }
                   }}
@@ -601,7 +646,20 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             required
             options={customerOptions}
             value={formData.customerId || ''}
-            onChange={e => setFormData({ ...formData, customerId: e.target.value })}
+            onChange={e => {
+              const selectedCustId = e.target.value;
+              const selectedCust = customers.find(c => c.id === selectedCustId);
+              const terms = selectedCust?.paymentTermsDays || 30;
+              const issueStr = formData.issueDate || new Date().toISOString().split('T')[0];
+              const issueObj = new Date(issueStr);
+              const computedDue = new Date(issueObj.getTime() + terms * 864e5).toISOString().split('T')[0];
+              setFormData({
+                ...formData,
+                customerId: selectedCustId,
+                customerName: selectedCust?.name || '',
+                dueDate: computedDue,
+              });
+            }}
           />
           <div className="grid grid-cols-2 gap-3">
             <Input

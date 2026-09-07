@@ -242,6 +242,7 @@ export interface Customer {
   state?: string;
   zip?: string;
   paymentOption?: PaymentOption;
+  paymentTermsDays?: number;
   creditLimitMinor?: number;
   averageDaysToPay?: number;
   rating?: number;
