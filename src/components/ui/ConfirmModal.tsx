@@ -70,13 +70,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         {confirmPhrase && (
           <div className="space-y-1.5 pt-1 border-t border-bd">
             <p className="text-[12px] text-fg-2 leading-relaxed">
-              Type the {confirmNoun}{' '}
-              <span className="font-semibold text-fg tnum select-all">{confirmPhrase}</span>{' '}
-              to confirm.
+              Type <span className="font-semibold text-fg font-mono bg-surface-2 border border-bd px-1.5 py-0.5 rounded select-all">"{confirmPhrase}"</span> to confirm.
             </p>
             <Input
               aria-label={`Type ${confirmPhrase} to confirm`}
-              placeholder={confirmPhrase}
+              placeholder={`Type "${confirmPhrase}"`}
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
@@ -86,7 +84,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             />
             {typed.length > 0 && !matches && (
               <p className="text-[11px] text-warn font-medium">
-                Does not match yet.
+                Please type "{confirmPhrase}" to enable confirmation.
               </p>
             )}
           </div>

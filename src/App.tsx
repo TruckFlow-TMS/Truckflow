@@ -266,7 +266,7 @@ export const AppContent: React.FC = () => {
 
           {activeTab === 'fleet' && <FleetView equipment={equipment} drivers={drivers} onReload={reloadData} />}
 
-          {activeTab === 'customers' && <CustomersView customers={customers} invoices={invoices} onReload={reloadData} />}
+          {activeTab === 'customers' && <CustomersView customers={customers} invoices={invoices} loads={loads} onReload={reloadData} />}
 
           {activeTab === 'invoices' && <BillingView invoices={invoices} loads={loads} customers={customers} onReload={reloadData} />}
 

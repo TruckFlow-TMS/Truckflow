@@ -137,6 +137,9 @@ export const SEED_DRIVERS: Driver[] = [
     cdlNumber: 'IL-98402948', cdlClass: 'A', cdlExpiration: '2027-11-15',
     medicalCardExpiration: '2026-08-10', status: 'ON_LOAD',
     payRateType: 'PER_MILE', payRateMinor: 68, createdAt: '2024-01-15T00:00:00Z',
+    documents: [
+      { type: 'DRIVER_ID', name: 'David_Miller_ID.pdf', fileUrl: '#', uploadedAt: '2025-01-15T00:00:00Z' },
+    ],
   },
   {
     id: 'drv-102', tenantId: 'tenant-nune-express',
@@ -147,6 +150,9 @@ export const SEED_DRIVERS: Driver[] = [
     cdlNumber: 'IN-44910283', cdlClass: 'A', cdlExpiration: '2028-04-20',
     medicalCardExpiration: '2027-01-15', status: 'AVAILABLE',
     payRateType: 'FLAT_PERCENT', payRateMinor: 82, createdAt: '2024-02-20T00:00:00Z',
+    documents: [
+      { type: 'DRIVER_ID', name: 'Alexei_Kowalski_ID.pdf', fileUrl: '#', uploadedAt: '2025-02-20T00:00:00Z' },
+    ],
   },
   {
     id: 'drv-103', tenantId: 'tenant-nune-express',
@@ -157,6 +163,9 @@ export const SEED_DRIVERS: Driver[] = [
     cdlNumber: 'IL-77201849', cdlClass: 'A', cdlExpiration: '2026-07-30',
     medicalCardExpiration: '2027-03-22', status: 'ON_LOAD',
     payRateType: 'PER_MILE', payRateMinor: 65, createdAt: '2024-04-01T00:00:00Z',
+    documents: [
+      { type: 'DRIVER_ID', name: 'Roberto_Santos_ID.pdf', fileUrl: '#', uploadedAt: '2025-04-01T00:00:00Z' },
+    ],
   },
   {
     id: 'drv-104', tenantId: 'tenant-nune-express',
@@ -166,6 +175,9 @@ export const SEED_DRIVERS: Driver[] = [
     cdlNumber: 'IL-33128477', cdlClass: 'A', cdlExpiration: '2027-06-01',
     medicalCardExpiration: '2026-09-30', status: 'AVAILABLE',
     payRateType: 'PER_MILE', payRateMinor: 70, createdAt: '2024-06-15T00:00:00Z',
+    documents: [
+      { type: 'DRIVER_ID', name: 'James_Thompson_ID.pdf', fileUrl: '#', uploadedAt: '2025-06-15T00:00:00Z' },
+    ],
   },
   {
     id: 'drv-105', tenantId: 'tenant-nune-express',
@@ -176,6 +188,9 @@ export const SEED_DRIVERS: Driver[] = [
     medicalCardExpiration: '2027-11-05', status: 'INACTIVE',
     payRateType: 'FLAT_PERCENT', payRateMinor: 85, notes: 'On medical leave.',
     createdAt: '2024-08-01T00:00:00Z',
+    documents: [
+      { type: 'DRIVER_ID', name: 'Kim_Nguyen_ID.pdf', fileUrl: '#', uploadedAt: '2025-08-01T00:00:00Z' },
+    ],
   },
 ];
 

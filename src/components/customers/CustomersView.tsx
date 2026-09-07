@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Customer, Invoice, PaymentOption } from '../../types/tms';
+import { Customer, Invoice, Load, PaymentOption } from '../../types/tms';
 import { useAuth } from '../../context/AuthContext';
 import { mockStore } from '../../services/mockStore';
 import { useToast } from '../ui/Toast';
@@ -14,6 +14,7 @@ import { Building2, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucid
 interface CustomersViewProps {
   customers: Customer[];
   invoices: Invoice[];
+  loads?: Load[];
   onReload: () => void;
 }
 
@@ -45,7 +46,7 @@ const paymentLabel = (v?: PaymentOption) => PAYMENT_OPTIONS.find(o => o.value ==
 const isOutstanding = (inv: Invoice) =>
   inv.status !== 'PAID' && inv.status !== 'VOID' && inv.status !== 'DRAFT';
 
-export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoices, onReload }) => {
+export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoices, loads, onReload }) => {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
 
@@ -122,6 +123,38 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
     const share = book ? Math.round((items.reduce((s, i) => s + i.weight, 0) / book) * 100) : 0;
     return { items, share, accounts: ranked.length };
   }, [invoices]);
+
+  /**
+   * Ranked on load volume (load count), showing top clients by number of loads handled.
+   */
+  const topClientsByLoads = useMemo(() => {
+    const counts = new Map<string, { name: string; count: number }>();
+    if (loads && loads.length > 0) {
+      for (const ld of loads) {
+        if (ld.status === 'CANCELLED') continue;
+        const key = ld.brokerId || ld.brokerName;
+        const prev = counts.get(key);
+        counts.set(key, { name: ld.brokerName, count: (prev?.count ?? 0) + 1 });
+      }
+    } else {
+      for (const inv of invoices) {
+        if (inv.status === 'VOID') continue;
+        const key = inv.customerId || inv.customerName;
+        const prev = counts.get(key);
+        counts.set(key, { name: inv.customerName, count: (prev?.count ?? 0) + 1 });
+      }
+    }
+    const ranked = [...counts.entries()].sort((a, b) => b[1].count - a[1].count);
+    const totalVolume = ranked.reduce((sum, [, v]) => sum + v.count, 0);
+    const items: TopListItem[] = ranked.slice(0, 5).map(([id, v]) => ({
+      id: `loads-${id}`,
+      label: v.name,
+      value: `${v.count} load${v.count === 1 ? '' : 's'}`,
+      weight: v.count,
+    }));
+    const share = totalVolume ? Math.round((items.reduce((s, i) => s + i.weight, 0) / totalVolume) * 100) : 0;
+    return { items, share, totalVolume, accounts: ranked.length };
+  }, [loads, invoices]);
 
   const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE) || 1;
   // Clamped so a result set that shrinks under the current page (narrowed
@@ -330,7 +363,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Broker & customer accounts"
           value={String(kpiData.total)}
@@ -343,6 +376,16 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
           sub={
             topClients.items.length
               ? `${topClients.share}% of billed revenue across ${topClients.accounts} accounts`
+              : undefined
+          }
+        />
+        <TopListCard
+          label="Top clients by loads"
+          items={topClientsByLoads.items}
+          emptyText="No loads dispatched yet"
+          sub={
+            topClientsByLoads.items.length
+              ? `${topClientsByLoads.share}% of load volume across ${topClientsByLoads.accounts} accounts`
               : undefined
           }
         />
@@ -511,8 +554,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
           isOpen={!!deleteItem}
           title="Delete customer account"
           message={`Deleting ${deleteItem.name} removes the broker record and its credit terms. This action cannot be undone.`}
-          confirmPhrase={deleteItem.name}
-          confirmNoun="customer name"
+          confirmPhrase="delete"
           confirmLabel="Delete customer"
           isDanger={true}
           onConfirm={handleDelete}

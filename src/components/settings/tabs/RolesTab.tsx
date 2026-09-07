@@ -341,8 +341,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({ roles, onReload }) => {
           isOpen={!!deletingRole}
           title="Delete role"
           message={`Deleting the custom role "${deletingRole.name}" drops users holding it back to default permissions. This action cannot be undone.`}
-          confirmPhrase={deletingRole.name}
-          confirmNoun="role name"
+          confirmPhrase="delete"
           confirmLabel="Delete role"
           isDanger={true}
           onConfirm={handleDeleteRole}

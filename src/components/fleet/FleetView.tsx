@@ -576,9 +576,8 @@ export const FleetView: React.FC<FleetViewProps> = ({ equipment, drivers, onRelo
               : '')
             + '. This action cannot be undone.'
           }
-          confirmPhrase={deleteItem.unitNumber}
-          confirmNoun="unit number"
-          confirmLabel="Delete unit"
+          confirmPhrase="delete"
+          confirmLabel="Delete equipment"
           isDanger={true}
           onConfirm={handleDelete}
           onCancel={() => setDeleteItem(null)}

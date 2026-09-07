@@ -43,9 +43,9 @@ const ENDORSEMENT_OPTIONS: { value: CdlEndorsement; label: string }[] = [
   { value: 'TANKER', label: 'Tanker' },
 ];
 
-const DRIVER_DOC_TYPES: { type: DriverDocumentType; label: string }[] = [
-  { type: 'DRIVER_ID', label: 'Driver ID' },
-  { type: 'MEDICAL_CARD', label: 'Medical card' },
+const DRIVER_DOC_TYPES: { type: DriverDocumentType; label: string; required: boolean }[] = [
+  { type: 'DRIVER_ID', label: 'Driver ID', required: true },
+  { type: 'MEDICAL_CARD', label: 'Medical card', required: false },
 ];
 
 const TYPE_OPTIONS = [
@@ -178,6 +178,13 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
+
+    // Driver ID document is mandatory
+    const driverIdDoc = (formData.documents || []).find((d) => d.type === 'DRIVER_ID');
+    if (!driverIdDoc) {
+      showToast('error', 'Driver ID document is mandatory. Please upload a Driver ID file.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -647,16 +654,18 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           <FormSection
             title="Documents"
             icon={<Paperclip size={13} className="text-accent" />}
-            aside="Optional"
+            aside="Driver ID Required *"
           >
-            {DRIVER_DOC_TYPES.map(({ type, label }) => {
+            {DRIVER_DOC_TYPES.map(({ type, label, required }) => {
               const doc = findDoc(type);
               return (
                 <div key={type} className="p-3 rounded-ctl border border-bd bg-surface-2 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-fg text-[12.5px]">{label}</span>
-                    <Badge tone={doc ? 'pos' : 'neutral'} dot={false}>
-                      {doc ? 'Uploaded' : 'Not uploaded'}
+                    <span className="font-semibold text-fg text-[12.5px]">
+                      {label} {required && <span className="text-danger">*</span>}
+                    </span>
+                    <Badge tone={doc ? 'pos' : required ? 'danger' : 'neutral'} dot={false}>
+                      {doc ? 'Uploaded' : required ? 'Required *' : 'Optional'}
                     </Badge>
                   </div>
 
@@ -709,8 +718,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ drivers, onReload }) =
           isOpen={!!deleteItem}
           title="Delete driver"
           message={`Deleting ${deleteItem.name} removes their profile, credentials and uploaded documents. This action cannot be undone.`}
-          confirmPhrase={deleteItem.name}
-          confirmNoun="driver name"
+          confirmPhrase="delete"
           confirmLabel="Delete driver"
           isDanger={true}
           onConfirm={handleDelete}
