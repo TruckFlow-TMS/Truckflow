@@ -10,8 +10,8 @@ export const FIELD_CLASS =
 
 export interface FieldShellProps {
   label?: string;
-  hint?: string;
-  error?: string;
+  hint?: React.ReactNode;
+  error?: React.ReactNode;
   htmlFor?: string;
   children: React.ReactNode;
 }
@@ -36,15 +36,15 @@ export const FieldShell: React.FC<FieldShellProps> = ({ label, hint, error, html
     {error ? (
       <p id={fieldMsgId(htmlFor)} className="text-[11px] text-danger mt-1">{error}</p>
     ) : hint ? (
-      <p id={fieldMsgId(htmlFor)} className="text-[11px] text-fg-3 mt-1">{hint}</p>
+      <div id={fieldMsgId(htmlFor)} className="text-[11px] text-fg-3 mt-1">{hint}</div>
     ) : null}
   </div>
 );
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
-  hint?: string;
-  error?: string;
+  hint?: React.ReactNode;
+  error?: React.ReactNode;
 }
 
 export const Input: React.FC<InputProps> = ({ label, hint, error, className, id, ...rest }) => {

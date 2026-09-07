@@ -18,6 +18,22 @@ interface PayrollViewProps {
   onReload: () => void;
 }
 
+const getPickupDate = (ld: Load): string => {
+  if (ld.pickupDate) return ld.pickupDate;
+  if (ld.stops && ld.stops.length > 0 && ld.stops[0].appointmentWindowStart) {
+    return ld.stops[0].appointmentWindowStart.split('T')[0];
+  }
+  return '2026-02-01';
+};
+
+const getDeliveryDate = (ld: Load): string => {
+  if (ld.deliveryDate) return ld.deliveryDate;
+  if (ld.stops && ld.stops.length > 0 && ld.stops[ld.stops.length - 1].appointmentWindowStart) {
+    return ld.stops[ld.stops.length - 1].appointmentWindowStart.split('T')[0];
+  }
+  return '2026-02-03';
+};
+
 export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onReload }) => {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
@@ -488,7 +504,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                 <tr className="border-b border-bd bg-surface-2 text-fg-2 text-[11px] font-bold uppercase tracking-wider">
                   <th className="p-2.5 w-10 text-center">Pay</th>
                   <th className="p-2.5">Load #</th>
-                  <th className="p-2.5">Delivered Date</th>
+                  <th className="p-2.5">Pickup Date</th>
+                  <th className="p-2.5">Delivery Date</th>
                   <th className="p-2.5">Route</th>
                   <th className="p-2.5 text-right">Miles</th>
                   <th className="p-2.5 text-right">Gross Rate</th>
@@ -529,7 +546,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                         />
                       </td>
                       <td className="p-2.5 font-bold text-accent tnum">{ld.loadNumber}</td>
-                      <td className="p-2.5 tnum text-fg-2">{ld.deliveryDate || '2026-02-01'}</td>
+                      <td className="p-2.5 tnum text-fg font-mono">{getPickupDate(ld)}</td>
+                      <td className="p-2.5 tnum text-fg-2 font-mono">{getDeliveryDate(ld)}</td>
                       <td className="p-2.5 text-fg font-medium">
                         <span className="block font-semibold">{ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}</span>
                         <span className="block text-[11px] text-fg-3 tnum font-mono">Load #: {ld.loadNumber}</span>
@@ -732,7 +750,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                   <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-2 border-r border-slate-700">Load #</th>
-                      <th className="p-2 border-r border-slate-700">Date</th>
+                      <th className="p-2 border-r border-slate-700">Pickup Date</th>
+                      <th className="p-2 border-r border-slate-700">Delivery Date</th>
                       <th className="p-2 border-r border-slate-700">Route</th>
                       <th className="p-2 text-right border-r border-slate-700">Miles</th>
                       <th className="p-2 text-right border-r border-slate-700">Gross Load Rate</th>
@@ -759,7 +778,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                             <span className="font-bold text-slate-900 block">{ld.loadNumber}</span>
                             <span className="text-[9.5px] font-sans font-medium text-slate-500 block mt-0.5">Ref: {ld.brokerReference || 'N/A'}</span>
                           </td>
-                          <td className="p-2 border-r border-slate-200">{ld.deliveryDate || '2026-02-01'}</td>
+                          <td className="p-2 border-r border-slate-200 font-mono">{getPickupDate(ld)}</td>
+                          <td className="p-2 border-r border-slate-200 font-mono">{getDeliveryDate(ld)}</td>
                           <td className="p-2 border-r border-slate-200 font-sans">
                             <span className="font-semibold text-slate-900 block">{ld.originCity}, {ld.originState} → {ld.destCity}, {ld.destState}</span>
                             <span className="text-[10px] font-bold font-mono text-slate-600 block mt-0.5">Load #: {ld.loadNumber}</span>
@@ -773,7 +793,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ drivers, loads, onRelo
                   </tbody>
                   <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-900 text-slate-900">
                     <tr>
-                      <td colSpan={3} className="p-2 uppercase text-right">Subtotal Trips ({calculationSummary.totalMiles} mi):</td>
+                      <td colSpan={4} className="p-2 uppercase text-right">Subtotal Trips ({calculationSummary.totalMiles} mi):</td>
                       <td className="p-2 text-right font-mono">{calculationSummary.totalMiles} mi</td>
                       <td className="p-2 text-right font-mono">${(calculationSummary.grossRateMinor / 100).toFixed(2)}</td>
                       <td className="p-2 text-right font-mono text-slate-900 text-[12px]">${(calculationSummary.basePayMinor / 100).toFixed(2)}</td>

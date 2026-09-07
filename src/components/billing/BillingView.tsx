@@ -109,12 +109,21 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     return '$' + (minorUnits / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const [typedLoadNumber, setTypedLoadNumber] = useState('');
+
   const handleOpenModal = (inv?: Invoice) => {
     if (inv) {
       setEditItem(inv);
       setFormData(inv);
+      const matched = loads.find(l => l.id === inv.loadId);
+      if (matched) {
+        setTypedLoadNumber(matched.loadNumber);
+      } else {
+        setTypedLoadNumber(inv.loadId ? inv.loadId.replace('custom-', '') : '');
+      }
     } else {
       setEditItem(null);
+      setTypedLoadNumber('');
       setFormData({
         invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
         status: 'DRAFT',
@@ -128,6 +137,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     setShowModal(false);
     setEditItem(null);
     setFormData({});
+    setTypedLoadNumber('');
   };
 
   const calculateDriverPay = (subtotalMinor: number) => {
@@ -259,16 +269,19 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
     {
       key: 'invoice',
       header: 'Invoice #',
-      width: '13%',
-      render: (inv) => <span className="font-semibold text-accent tnum">{inv.invoiceNumber}</span>,
-    },
-    {
-      key: 'load',
-      header: 'Load #',
-      width: '10%',
-      render: (inv) => (
-        <span className="tnum text-fg-2">{loads.find(l => l.id === inv.loadId)?.loadNumber || '—'}</span>
-      ),
+      width: '16%',
+      render: (inv) => {
+        const matched = loads.find(l => l.id === inv.loadId);
+        const loadNum = matched ? matched.loadNumber : (inv.loadId ? inv.loadId.replace('custom-', '') : null);
+        return (
+          <div>
+            <span className="font-bold text-accent tnum block">{inv.invoiceNumber}</span>
+            <span className="block text-[11px] text-fg-3 tnum font-mono mt-0.5">
+              {loadNum ? `Load #: ${loadNum}` : 'Manual invoice'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'customer',
@@ -529,6 +542,60 @@ export const BillingView: React.FC<BillingViewProps> = ({ invoices, loads, custo
             value={formData.invoiceNumber || ''}
             onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
           />
+          {(() => {
+            const matchedLoad = loads.find(l => l.loadNumber.toLowerCase() === typedLoadNumber.trim().toLowerCase());
+            return (
+              <div>
+                <Input
+                  label="Load number"
+                  list="loads-datalist"
+                  placeholder="Type or select load number (e.g. NE-2026-088)…"
+                  className="tnum"
+                  value={typedLoadNumber}
+                  hint={
+                    matchedLoad ? (
+                      <span className="text-pos flex items-center gap-1 font-medium">
+                        ✓ Linked to system load #{matchedLoad.loadNumber} ({formatCurrency(matchedLoad.rateMinor)})
+                      </span>
+                    ) : typedLoadNumber.trim() ? (
+                      <span className="text-fg-3">
+                        Custom load number (unlinked)
+                      </span>
+                    ) : (
+                      'Type a load number or select from system loads'
+                    )
+                  }
+                  onChange={e => {
+                    const val = e.target.value;
+                    setTypedLoadNumber(val);
+                    const matched = loads.find(l => l.loadNumber.toLowerCase() === val.trim().toLowerCase());
+                    if (matched) {
+                      setFormData({
+                        ...formData,
+                        loadId: matched.id,
+                        customerId: matched.brokerId || formData.customerId,
+                        subtotalMinor: matched.rateMinor,
+                        totalMinor: matched.rateMinor,
+                        driverPayMinor: calculateDriverPay(matched.rateMinor),
+                      });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        loadId: val.trim() ? (val.trim().startsWith('custom-') ? val.trim() : `custom-${val.trim()}`) : ''
+                      });
+                    }
+                  }}
+                />
+                <datalist id="loads-datalist">
+                  {loads.map(l => (
+                    <option key={l.id} value={l.loadNumber}>
+                      {`Load #${l.loadNumber} — ${l.brokerName} ($${(l.rateMinor / 100).toFixed(2)})`}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
+            );
+          })()}
           <Select
             label="Customer"
             required
