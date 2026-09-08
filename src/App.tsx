@@ -33,9 +33,9 @@ import {
 } from './types/tms';
 
 /** Read synchronously at mount so a collapsed reload doesn't flash open. */
-const SIDEBAR_COLLAPSE_KEY = 'nune_tms_sidebar_collapsed';
+const SIDEBAR_COLLAPSE_KEY = 'truckhq_sidebar_collapsed';
 /** Legacy key — dismissals are no longer persisted, only swept up. */
-const DISMISSED_NOTIS_KEY = 'nune_tms_dismissed_notis';
+const DISMISSED_NOTIS_KEY = 'truckhq_dismissed_notis';
 
 export const AppContent: React.FC = () => {
   const { currentUser } = useAuth();

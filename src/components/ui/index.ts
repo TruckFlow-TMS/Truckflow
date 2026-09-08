@@ -1,6 +1,8 @@
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 export { Card } from './Card';
+export { Wordmark } from './Wordmark';
+export type { WordmarkProps, WordmarkTone } from './Wordmark';
 export type { CardProps } from './Card';
 export { Badge, statusTone, humanizeStatus, TONE_CLASS } from './Badge';
 export type { BadgeProps, Tone } from './Badge';

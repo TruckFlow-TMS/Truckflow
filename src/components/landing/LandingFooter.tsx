@@ -1,7 +1,6 @@
 import React from 'react';
-import { Button } from '../ui';
+import { Button, Wordmark } from '../ui';
 import { FOOTER } from './content';
-import { Wordmark } from './Wordmark';
 
 export interface LandingFooterProps {
   onSignIn: () => void;

@@ -8,9 +8,9 @@ import {
 } from './mockData';
 
 const K = {
-  LOADS: 'nune_tms_loads', DRIVERS: 'nune_tms_drivers', EQUIPMENT: 'nune_tms_equipment',
-  CUSTOMERS: 'nune_tms_customers', INVOICES: 'nune_tms_invoices', ROLES: 'nune_tms_roles',
-  USERS: 'nune_tms_users', AUDIT: 'nune_tms_audit', TOKEN: 'nune_tms_jwt_token',
+  LOADS: 'truckhq_loads', DRIVERS: 'truckhq_drivers', EQUIPMENT: 'truckhq_equipment',
+  CUSTOMERS: 'truckhq_customers', INVOICES: 'truckhq_invoices', ROLES: 'truckhq_roles',
+  USERS: 'truckhq_users', AUDIT: 'truckhq_audit', TOKEN: 'truckhq_jwt_token',
 };
 
 /**

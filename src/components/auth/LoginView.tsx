@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Input, PasswordInput, Button, Card } from '../ui';
+import { Input, PasswordInput, Button, Card, Wordmark } from '../ui';
 
 /**
  * Freight lanes drawn across the backdrop. Coordinates are in the 1440×900
@@ -158,11 +158,7 @@ export function LoginView({ onBack }: LoginViewProps) {
         <div className="flex flex-col items-center justify-center gap-3 mb-6">
           <div className="relative flex items-center justify-center p-2">
             <div className="absolute inset-0 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
-            <img
-              src="/logo.png"
-              alt="Nune HQ — Your Trucking Business. One Headquarters."
-              className="relative w-64 sm:w-80 h-auto object-contain filter drop-shadow-2xl"
-            />
+            <Wordmark className="relative scale-125" />
           </div>
         </div>
 
@@ -176,7 +172,7 @@ export function LoginView({ onBack }: LoginViewProps) {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@nuneexpress.com"
+              placeholder="you@yourcompany.com"
               required
             />
             <PasswordInput

@@ -15,8 +15,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const TOKEN_KEY = 'nune_tms_jwt_token';
-const USER_KEY = 'nune_tms_current_user';
+const TOKEN_KEY = 'truckhq_jwt_token';
+const USER_KEY = 'truckhq_current_user';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(SEED_USERS);

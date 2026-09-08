@@ -4,6 +4,7 @@ import {
   DollarSign, BarChart3, Settings, Wallet,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { Wordmark } from '../ui';
 
 export type NavTab =
   | 'dashboard'
@@ -112,20 +113,19 @@ export function Sidebar({ activeTab, setActiveTab, loadCount = 0, collapsed }: S
           collapsed ? 'px-0 justify-center' : 'px-2',
         )}
       >
+        {/* Geometry is load-bearing: the w-11/h-11 box is what keeps the icon
+            centre still while the rail width animates. Only the artwork inside
+            changed with the TruckHQ rename — do not resize this wrapper. */}
         <div className="relative shrink-0 w-11 h-11 flex items-center justify-center">
-          <img
-            src="/logo.png"
-            alt="Nune HQ"
-            className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(249,115,22,0.3)]"
-          />
+          <Wordmark tone="sidebar" markOnly />
         </div>
         <div className={label(collapsed)}>
-          <div className="text-[14px] font-bold text-white tracking-tight truncate flex items-center gap-1">
-            <span>Nune</span>
-            <span className="text-[#F97316] font-extrabold">HQ</span>
+          <div className="text-[14px] font-bold text-side-fg-on tracking-tight truncate flex items-center gap-0.5">
+            <span>Truck</span>
+            <span className="text-side-active font-extrabold">HQ</span>
           </div>
           <div className="text-[9px] text-side-lab truncate tracking-wider font-semibold uppercase">
-            One Headquarters
+            Trucking management
           </div>
         </div>
       </div>

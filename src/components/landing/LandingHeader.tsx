@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Menu, Moon, Sun, X } from 'lucide-react';
-import { Button } from '../ui';
+import { Button, Wordmark } from '../ui';
 import { useTheme } from '../../context/ThemeContext';
 import { cn } from '../../lib/cn';
-import { Wordmark } from './Wordmark';
 
 export interface LandingHeaderProps {
   onSignIn: () => void;
