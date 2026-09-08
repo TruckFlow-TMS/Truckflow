@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Truck } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Input, PasswordInput, Button, Card } from '../ui';
 
@@ -35,7 +35,12 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-export function LoginView() {
+export interface LoginViewProps {
+  /** Supplied when the landing page is the referrer; renders a back link. */
+  onBack?: () => void;
+}
+
+export function LoginView({ onBack }: LoginViewProps) {
   const reducedMotion = usePrefersReducedMotion();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -138,6 +143,16 @@ export function LoginView() {
       </svg>
 
       <div className="relative w-full max-w-[380px]">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-4 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-fg-2 hover:text-fg transition-colors rounded-ctl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          >
+            <ArrowLeft size={14} />
+            Back
+          </button>
+        )}
         {/* Brand sits above the card rather than in its own panel, so the whole
             screen is one column and the tokens carry both themes unaided. */}
         <div className="flex flex-col items-center justify-center gap-3 mb-6">

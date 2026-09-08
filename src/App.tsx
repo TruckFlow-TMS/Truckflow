@@ -5,6 +5,7 @@ import { ToastProvider } from './components/ui/Toast';
 import { Header, Notification } from './components/layout/Header';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { LoginView } from './components/auth/LoginView';
+import { LandingView } from './components/landing/LandingView';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { DispatchBoardView } from './components/dispatch/DispatchBoardView';
 import { LoadsListView } from './components/loads/LoadsListView';
@@ -39,6 +40,10 @@ const DISMISSED_NOTIS_KEY = 'nune_tms_dismissed_notis';
 export const AppContent: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+
+  // Logged-out visitors land on the marketing page; Sign in swaps to the form.
+  // A local flag rather than a route — this project has no router by convention.
+  const [authView, setAuthView] = useState<'landing' | 'login'>('landing');
 
   // Lives here rather than in Sidebar: the Header owns the toggle, so the two
   // need a common parent to share the flag.
@@ -198,9 +203,13 @@ export const AppContent: React.FC = () => {
 
   const handleMarkAllRead = () => setReadAll(true);
 
-  // If user is unauthenticated, render Login View
+  // If user is unauthenticated, show the landing page; Sign in reveals the form.
   if (!currentUser) {
-    return <LoginView />;
+    return authView === 'login' ? (
+      <LoginView onBack={() => setAuthView('landing')} />
+    ) : (
+      <LandingView onSignIn={() => setAuthView('login')} />
+    );
   }
 
   return (
