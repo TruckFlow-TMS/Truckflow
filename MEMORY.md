@@ -71,6 +71,32 @@ The sidebar collapses to a 56px icon rail. `App.tsx` owns the `collapsed` flag (
 
 Paginated views (Loads, Billing, Customers, Drivers, Fleet, Settings→Users) all clamp the current page: `const page = Math.min(currentPage, totalPages)`. Without it a shrinking result set strands the user on an empty page with the pager hidden. Any new paginated list needs the same clamp, and every filter control needs to reset to page 1.
 
+## Landing page and branding
+
+The product is **TruckHQ**. `public/logo.png` is the older Nune HQ artwork and
+still carries that name inside the image, so the app sets its mark in type
+instead: `src/components/ui/Wordmark.tsx`, used by the landing page, the login
+screen and the sidebar rail. Use it rather than the PNG for any new surface.
+
+"Nune Express LLC", its staff names and the `@nuneexpress.com` addresses in
+`mockData.ts` are the **seeded customer**, not the product. They are deliberately
+not renamed — the vendor and the tenant are different things.
+
+`src/components/landing/` is the logged-out marketing page. `App.tsx` holds an
+`authView` flag and swaps between `LandingView` and `LoginView`; there is still
+no router. All copy lives in `landing/content.ts`, apart from the markup, and
+every claim in it is meant to map to a feature that exists — check that before
+adding one. The hero diagram draws the dispatch board's real six columns, so it
+must be updated if those columns change.
+
+Note `AuthContext.tsx` returns `SEED_USERS[0]` when storage is empty, so a cold
+first visit auto-logs-in as Admin and never sees the landing page. Logging out
+does reach it. That shortcut is intentional and was left in place.
+
+localStorage keys use the **`truckhq_`** prefix. `src/lib/migrateStorage.ts`
+copies the old `nune_tms_` keys forward at startup; it can be deleted once no
+browser is likely to hold the old ones.
+
 ## Standing constraints
 
 These predate the current code and still hold:
