@@ -151,18 +151,26 @@ export const LoadsListView: React.FC<LoadsListViewProps> = ({
       key: 'lane',
       header: 'Lane',
       width: '21%',
-      render: (ld) => (
-        <>
-          <span className="font-medium inline-flex items-center gap-1.5">
-            {ld.originCity}, {ld.originState}
-            <ArrowRight size={12} className="text-fg-3 shrink-0" />
-            {ld.destCity}, {ld.destState}
-          </span>
-          <span className="block text-[11px] text-fg-3 mt-px">
-            Pickup {ld.pickupDate || 'TBD'}
-          </span>
-        </>
-      ),
+      render: (ld) => {
+        const isMultiStop = ld.stops && ld.stops.length > 2;
+        return (
+          <>
+            <span className="font-medium inline-flex items-center gap-1.5 flex-wrap">
+              {ld.originCity}, {ld.originState}
+              <ArrowRight size={12} className="text-fg-3 shrink-0" />
+              {ld.destCity}, {ld.destState}
+              {isMultiStop && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-accent/10 text-accent border border-accent/30">
+                  Multi-stop ({ld.stops.length})
+                </span>
+              )}
+            </span>
+            <span className="block text-[11px] text-fg-3 mt-px">
+              Pickup {ld.pickupDate || 'TBD'}
+            </span>
+          </>
+        );
+      },
     },
     {
       key: 'driver',

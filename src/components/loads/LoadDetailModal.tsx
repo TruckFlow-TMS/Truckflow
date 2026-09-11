@@ -156,15 +156,74 @@ export const LoadDetailModal: React.FC<LoadDetailModalProps> = ({ load, onClose,
       )}
 
       {activeTab === 'STOPS' && (
-        <div className="space-y-3">
-          <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide">Route stops & appointments</h3>
-          {load.stops && load.stops.length > 0 ? load.stops.map(stop => (
-            <Card key={stop.id}>
-              <Badge tone="accent" className="mb-2">{stop.type} — Stop #{stop.sequence}</Badge>
-              <p className="text-[13.5px] text-fg font-medium">{stop.facilityName || 'Facility'}</p>
-              <p className="text-[12px] text-fg-2 mt-0.5">{stop.address}, {stop.city}, {stop.state} {stop.zip}</p>
-            </Card>
-          )) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide">Route stops & appointments</h3>
+            {load.stops && load.stops.length > 2 && (
+              <span className="px-2.5 py-1 text-[11px] font-bold rounded-ctl bg-accent/10 border border-accent/30 text-accent">
+                Multi-Stop Load ({load.stops.length} Total Stops)
+              </span>
+            )}
+          </div>
+
+          {load.stops && load.stops.length > 0 ? (
+            <div className="space-y-3">
+              {load.stops.map((stop, idx) => {
+                const isPickup = stop.type === 'PICKUP';
+                const statusToneClass =
+                  stop.status === 'COMPLETED' ? 'bg-pos-bg text-pos border-pos/30' :
+                  stop.status === 'DEPARTED' ? 'bg-accent/10 text-accent border-accent/30' :
+                  stop.status === 'ARRIVED' ? 'bg-warn-bg text-warn border-warn/30' :
+                  'bg-surface-2 text-fg-3 border-bd';
+
+                return (
+                  <Card key={stop.id || idx} className="space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge tone={isPickup ? 'accent' : 'violet'}>
+                          Stop #{stop.sequence} — {isPickup ? 'PICKUP' : 'DELIVERY / DROP'}
+                        </Badge>
+                        {stop.referenceNumber && (
+                          <span className="text-[11.5px] font-semibold text-accent tnum">
+                            Ref #: {stop.referenceNumber}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${statusToneClass}`}>
+                        {stop.status || 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-[14px] text-fg font-bold">{stop.facilityName || 'Facility'}</p>
+                      <p className="text-[12.5px] text-fg-2 mt-0.5">
+                        {[stop.address, stop.city, stop.state, stop.zip].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-bd text-[11.5px]">
+                      <div>
+                        <span className="text-fg-3 block">Scheduled Date</span>
+                        <span className="font-semibold text-fg tnum">{stop.appointmentWindowStart || 'TBD'}</span>
+                      </div>
+                      <div>
+                        <span className="text-fg-3 block">Arrival Timestamp</span>
+                        <span className="font-semibold text-fg tnum">
+                          {stop.arrivedAt ? new Date(stop.arrivedAt).toLocaleString() : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-fg-3 block">Departure Timestamp</span>
+                        <span className="font-semibold text-fg tnum">
+                          {stop.departedAt ? new Date(stop.departedAt).toLocaleString() : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
             <p className="text-[13px] text-fg-3 italic">No custom stops configured.</p>
           )}
         </div>

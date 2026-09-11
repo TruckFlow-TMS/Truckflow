@@ -213,14 +213,20 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
     state: string;
     zip: string;
     date: string;
+    referenceNumber: string;
     instructions: string;
     bol: string;
+    status: 'PENDING' | 'ARRIVED' | 'DEPARTED' | 'COMPLETED';
+    arrivedAt: string;
+    departedAt: string;
   }
 
   const emptyStop = (type: 'pickup' | 'delivery'): StopData => ({
-    facilityName: '', address: '', city: '', state: '', zip: '', date: '', instructions: '', bol: '',
+    facilityName: '', address: '', city: '', state: '', zip: '', date: '', referenceNumber: '', instructions: '', bol: '',
+    status: 'PENDING', arrivedAt: '', departedAt: '',
   });
 
+  const [isMultiStop, setIsMultiStop] = useState(false);
   const [pickups, setPickups] = useState<StopData[]>([emptyStop('pickup')]);
   const [deliveries, setDeliveries] = useState<StopData[]>([emptyStop('delivery')]);
 
@@ -281,8 +287,12 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
           state: s.state,
           zip: s.zip,
           address: s.address,
+          referenceNumber: s.referenceNumber || s.bol || undefined,
           appointmentWindowStart: s.date,
           appointmentWindowEnd: '',
+          status: s.status || 'PENDING',
+          arrivedAt: s.arrivedAt || undefined,
+          departedAt: s.departedAt || undefined,
         })),
         ...deliveries.map((s, i) => ({
           sequence: pickups.length + i + 1,
@@ -292,8 +302,12 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
           state: s.state,
           zip: s.zip,
           address: s.address,
+          referenceNumber: s.referenceNumber || undefined,
           appointmentWindowStart: s.date,
           appointmentWindowEnd: '',
+          status: s.status || 'PENDING',
+          arrivedAt: s.arrivedAt || undefined,
+          departedAt: s.departedAt || undefined,
         })),
       ];
 
@@ -398,32 +412,62 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         />
       </div>
 
-      <Input
-        label={req(`${type === 'pickup' ? 'Pickup' : 'Delivery'} date`)}
-        required
-        type="date"
-        value={list[index].date}
-        onChange={(e) => updateStop(list, setter, index, 'date', e.target.value)}
-        className="tnum"
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <Input
+          label={req(`${type === 'pickup' ? 'Pickup' : 'Delivery'} date`)}
+          required
+          type="date"
+          value={list[index].date}
+          onChange={(e) => updateStop(list, setter, index, 'date', e.target.value)}
+          className="tnum"
+        />
+        <Input
+          label="Stop Ref # / BOL #"
+          placeholder="PO # / BOL # / Reference #"
+          value={list[index].referenceNumber || list[index].bol}
+          onChange={(e) => {
+            updateStop(list, setter, index, 'referenceNumber', e.target.value);
+            updateStop(list, setter, index, 'bol', e.target.value);
+          }}
+          className="tnum"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <Select
+          label="Stop status"
+          value={list[index].status || 'PENDING'}
+          onChange={(e) => updateStop(list, setter, index, 'status', e.target.value)}
+          options={[
+            { value: 'PENDING', label: 'Pending' },
+            { value: 'ARRIVED', label: 'Arrived' },
+            { value: 'DEPARTED', label: 'Departed' },
+            { value: 'COMPLETED', label: 'Completed' },
+          ]}
+        />
+        <Input
+          label="Arrival timestamp"
+          type="datetime-local"
+          value={list[index].arrivedAt || ''}
+          onChange={(e) => updateStop(list, setter, index, 'arrivedAt', e.target.value)}
+          className="tnum text-[11px]"
+        />
+        <Input
+          label="Departure timestamp"
+          type="datetime-local"
+          value={list[index].departedAt || ''}
+          onChange={(e) => updateStop(list, setter, index, 'departedAt', e.target.value)}
+          className="tnum text-[11px]"
+        />
+      </div>
 
       <Textarea
         label="Driver instructions"
-        placeholder="Pick up number, Apt. time, etc."
+        placeholder="Pick up number, Apt. time, gate code, etc."
         rows={2}
         value={list[index].instructions}
         onChange={(e) => updateStop(list, setter, index, 'instructions', e.target.value)}
       />
-
-      {type === 'pickup' && (
-        <Input
-          label="BOL #"
-          placeholder="Bill of Lading number"
-          value={list[index].bol}
-          onChange={(e) => updateStop(list, setter, index, 'bol', e.target.value)}
-          className="tnum"
-        />
-      )}
     </div>
   );
 
@@ -717,30 +761,65 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
 
         {/* ═══ SECTION 2: Stops ═══ */}
         <div className="space-y-3">
-          <SectionHeader icon={<MapPin size={14} className="text-accent" />} title="Stops" />
+          <div className="flex items-center justify-between">
+            <SectionHeader icon={<MapPin size={14} className="text-accent" />} title="Stops & Routing" />
+            <div className="inline-flex rounded-ctl bg-surface-2 border border-bd p-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setIsMultiStop(false)}
+                className={`px-2.5 py-1 rounded-ctl font-semibold transition ${
+                  !isMultiStop ? 'bg-surface text-accent shadow-sm' : 'text-fg-3 hover:text-fg'
+                }`}
+              >
+                📍 Standard Direct (1 Pickup ➔ 1 Drop)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMultiStop(true)}
+                className={`px-2.5 py-1 rounded-ctl font-semibold transition ${
+                  isMultiStop ? 'bg-surface text-accent shadow-sm' : 'text-fg-3 hover:text-fg'
+                }`}
+              >
+                🔄 Multi-Stop Load (Multiple Drops/Pickups)
+              </button>
+            </div>
+          </div>
+
+          {isMultiStop && (
+            <div className="p-3 rounded-ctl bg-accent-weak/40 border border-accent/20 text-[12px] text-fg-2">
+              <span className="font-bold text-accent block mb-0.5">Multi-stop Load Routing</span>
+              Multi-drop runs carry individual stop statuses, reference numbers, and arrival timestamps per facility stop.
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Pickup column */}
             <div className="space-y-3">
-              {pickups.map((_, i) => renderStop('Pickup', pickups, setPickups, i, 'pickup'))}
+              {pickups.map((_, i) => renderStop('Pick-up', pickups, setPickups, i, 'pickup'))}
               <button
                 type="button"
-                onClick={() => setPickups([...pickups, emptyStop('pickup')])}
+                onClick={() => {
+                  setIsMultiStop(true);
+                  setPickups([...pickups, emptyStop('pickup')]);
+                }}
                 className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
               >
-                <Plus size={13} /> Add another pickup
+                <Plus size={13} /> Add another pick-up stop
               </button>
             </div>
 
             {/* Delivery column */}
             <div className="space-y-3">
-              {deliveries.map((_, i) => renderStop('Delivery', deliveries, setDeliveries, i, 'delivery'))}
+              {deliveries.map((_, i) => renderStop('Drop / Delivery', deliveries, setDeliveries, i, 'delivery'))}
               <button
                 type="button"
-                onClick={() => setDeliveries([...deliveries, emptyStop('delivery')])}
+                onClick={() => {
+                  setIsMultiStop(true);
+                  setDeliveries([...deliveries, emptyStop('delivery')]);
+                }}
                 className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
               >
-                <Plus size={13} /> Add another delivery
+                <Plus size={13} /> Add another drop / delivery stop
               </button>
             </div>
           </div>

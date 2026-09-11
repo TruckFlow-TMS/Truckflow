@@ -68,10 +68,12 @@ export interface LoadStop {
   state: string;
   zip: string;
   address: string;
+  referenceNumber?: string;
   appointmentWindowStart: string;
   appointmentWindowEnd: string;
   arrivedAt?: string;
   departedAt?: string;
+  status?: 'PENDING' | 'ARRIVED' | 'DEPARTED' | 'COMPLETED';
 }
 
 export interface Accessorial {
