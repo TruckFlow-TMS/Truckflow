@@ -302,7 +302,7 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
         <Input
           label="Stop Ref # / BOL #"
           disabled={isPaid}
-          placeholder="PO # / BOL # / Ref #"
+          placeholder="BOL # / Ref #"
           value={list[index].referenceNumber}
           onChange={(e) => updateStop(list, setter, index, 'referenceNumber', e.target.value)}
           className="tnum"

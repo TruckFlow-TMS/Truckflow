@@ -423,7 +423,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         />
         <Input
           label="Stop Ref # / BOL #"
-          placeholder="PO # / BOL # / Reference #"
+          placeholder="BOL # / Reference #"
           value={list[index].referenceNumber || list[index].bol}
           onChange={(e) => {
             updateStop(list, setter, index, 'referenceNumber', e.target.value);
@@ -690,7 +690,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Broker reference / PO #"
+              label="Broker reference / BOL #"
               placeholder="e.g. REF-88492"
               value={brokerReference}
               onChange={(e) => setBrokerReference(e.target.value)}
@@ -869,7 +869,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
 
           <Input
             label="Customer required info"
-            placeholder="Rate con number, customer tracking number, PO #, etc."
+            placeholder="Rate con number, customer tracking number, BOL #, etc."
             value={customerRequiredInfo}
             onChange={(e) => setCustomerRequiredInfo(e.target.value)}
           />
