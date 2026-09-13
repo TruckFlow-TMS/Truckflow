@@ -6,7 +6,7 @@ import {
   DollarSign, MapPin, Truck, Plus, Package, FileText, Trash2, CalendarDays,
   Search, X, UserPlus, ChevronDown,
 } from 'lucide-react';
-import { Modal, Card, Input, Select, Textarea, Button } from '../ui';
+import { Modal, Card, Input, Select, Textarea, Button, AddressAutocomplete } from '../ui';
 
 /* ── US state abbreviations for dropdowns ─────────────────────────────────── */
 const US_STATES = [
@@ -230,6 +230,18 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
   const [pickups, setPickups] = useState<StopData[]>([emptyStop('pickup')]);
   const [deliveries, setDeliveries] = useState<StopData[]>([emptyStop('delivery')]);
 
+  const updateStopFields = (
+    setter: React.Dispatch<React.SetStateAction<StopData[]>>,
+    index: number,
+    fields: Partial<StopData>,
+  ) => {
+    setter((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...fields };
+      return copy;
+    });
+  };
+
   const updateStop = (
     list: StopData[],
     setter: React.Dispatch<React.SetStateAction<StopData[]>>,
@@ -237,9 +249,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
     field: keyof StopData,
     value: string,
   ) => {
-    const copy = [...list];
-    copy[index] = { ...copy[index], [field]: value };
-    setter(copy);
+    updateStopFields(setter, index, { [field]: value });
   };
 
   /* ── Load details ───────────────────────────────────────────────────────── */
@@ -359,7 +369,7 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         <span className="text-[11px] font-bold uppercase tracking-wider text-fg-2">
           {label} {list.length > 1 ? `#${index + 1}` : ''}
         </span>
-        {list.length > 1 && (
+        {isMultiStop && list.length > 1 && (
           <button
             type="button"
             onClick={() => setter(list.filter((_, i) => i !== index))}
@@ -379,11 +389,17 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
         onChange={(e) => updateStop(list, setter, index, 'facilityName', e.target.value)}
       />
 
-      <Input
-        label="Address"
-        placeholder="Street address"
+      <AddressAutocomplete
+        label="Street address"
+        placeholder="street address…"
         value={list[index].address}
-        onChange={(e) => updateStop(list, setter, index, 'address', e.target.value)}
+        onChange={(v) => updateStop(list, setter, index, 'address', v)}
+        onSelectAddress={(data) => {
+          updateStop(list, setter, index, 'address', data.address);
+          if (data.city) updateStop(list, setter, index, 'city', data.city);
+          if (data.state) updateStop(list, setter, index, 'state', data.state);
+          if (data.zip) updateStop(list, setter, index, 'zip', data.zip);
+        }}
       />
 
       <div className="grid grid-cols-3 gap-2">
@@ -640,7 +656,18 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input label="Street" placeholder="Street address" value={newCust.street} onChange={(e) => updateNewCust('street', e.target.value)} />
+                <AddressAutocomplete
+                  label="Street address"
+                  placeholder="Start typing US street address…"
+                  value={newCust.street}
+                  onChange={(v) => updateNewCust('street', v)}
+                  onSelectAddress={(data) => {
+                    updateNewCust('street', data.address);
+                    if (data.city) updateNewCust('city', data.city);
+                    if (data.state) updateNewCust('state', data.state);
+                    if (data.zip) updateNewCust('zip', data.zip);
+                  }}
+                />
                 <Input label="Apt / Suite / Other" placeholder="Suite, unit, etc." value={newCust.aptSuite} onChange={(e) => updateNewCust('aptSuite', e.target.value)} />
               </div>
 
@@ -766,7 +793,11 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
             <div className="inline-flex rounded-ctl bg-surface-2 border border-bd p-0.5 text-[11px]">
               <button
                 type="button"
-                onClick={() => setIsMultiStop(false)}
+                onClick={() => {
+                  setIsMultiStop(false);
+                  setPickups(prev => [prev[0]]);
+                  setDeliveries(prev => [prev[0]]);
+                }}
                 className={`px-2.5 py-1 rounded-ctl font-semibold transition ${
                   !isMultiStop ? 'bg-surface text-accent shadow-sm' : 'text-fg-3 hover:text-fg'
                 }`}
@@ -796,31 +827,29 @@ export const CreateLoadModal: React.FC<CreateLoadModalProps> = ({
             {/* Pickup column */}
             <div className="space-y-3">
               {pickups.map((_, i) => renderStop('Pick-up', pickups, setPickups, i, 'pickup'))}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultiStop(true);
-                  setPickups([...pickups, emptyStop('pickup')]);
-                }}
-                className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
-              >
-                <Plus size={13} /> Add another pick-up stop
-              </button>
+              {isMultiStop && (
+                <button
+                  type="button"
+                  onClick={() => setPickups([...pickups, emptyStop('pickup')])}
+                  className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
+                >
+                  <Plus size={13} /> Add another pick-up stop
+                </button>
+              )}
             </div>
 
             {/* Delivery column */}
             <div className="space-y-3">
               {deliveries.map((_, i) => renderStop('Drop / Delivery', deliveries, setDeliveries, i, 'delivery'))}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMultiStop(true);
-                  setDeliveries([...deliveries, emptyStop('delivery')]);
-                }}
-                className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
-              >
-                <Plus size={13} /> Add another drop / delivery stop
-              </button>
+              {isMultiStop && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveries([...deliveries, emptyStop('delivery')])}
+                  className="flex items-center gap-1.5 text-[11.5px] font-semibold text-accent hover:underline"
+                >
+                  <Plus size={13} /> Add another drop / delivery stop
+                </button>
+              )}
             </div>
           </div>
         </div>

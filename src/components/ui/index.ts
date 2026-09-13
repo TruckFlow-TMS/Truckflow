@@ -37,3 +37,6 @@ export { DateRangeFilter } from './DateRangeFilter';
 export type { DateRangeFilterProps } from './DateRangeFilter';
 export { FormSection } from './FormSection';
 export type { FormSectionProps } from './FormSection';
+export { AddressAutocomplete } from './AddressAutocomplete';
+export type { AddressData } from './AddressAutocomplete';
+

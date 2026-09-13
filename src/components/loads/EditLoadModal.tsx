@@ -3,7 +3,7 @@ import { Customer, Driver, Equipment, Load, LoadStop } from '../../types/tms';
 import { mockStore } from '../../services/mockStore';
 import { useAuth } from '../../context/AuthContext';
 import { DollarSign, MapPin, Truck, AlertTriangle, Check, Plus, Trash2 } from 'lucide-react';
-import { Modal, Card, Input, Select, Textarea, Button } from '../ui';
+import { Modal, Card, Input, Select, Textarea, Button, AddressAutocomplete } from '../ui';
 
 interface EditLoadModalProps {
   isOpen: boolean;
@@ -129,6 +129,18 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
 
   const isPaid = load.status === 'PAID';
 
+  const updateStopFields = (
+    setter: React.Dispatch<React.SetStateAction<StopData[]>>,
+    index: number,
+    fields: Partial<StopData>,
+  ) => {
+    setter((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...fields };
+      return copy;
+    });
+  };
+
   const updateStop = (
     list: StopData[],
     setter: React.Dispatch<React.SetStateAction<StopData[]>>,
@@ -136,9 +148,7 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
     field: keyof StopData,
     value: string
   ) => {
-    const copy = [...list];
-    copy[index] = { ...copy[index], [field]: value };
-    setter(copy);
+    updateStopFields(setter, index, { [field]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -231,7 +241,7 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
         <span className="text-[11px] font-bold uppercase tracking-wider text-fg-2">
           {label} {list.length > 1 ? `#${index + 1}` : ''}
         </span>
-        {list.length > 1 && !isPaid && (
+        {isMultiStop && list.length > 1 && !isPaid && (
           <button
             type="button"
             onClick={() => setter(list.filter((_, i) => i !== index))}
@@ -252,12 +262,20 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
         onChange={(e) => updateStop(list, setter, index, 'facilityName', e.target.value)}
       />
 
-      <Input
+      <AddressAutocomplete
         label="Street address"
         disabled={isPaid}
-        placeholder="Address"
+        placeholder="Start typing US street address…"
         value={list[index].address}
-        onChange={(e) => updateStop(list, setter, index, 'address', e.target.value)}
+        onChange={(v) => updateStop(list, setter, index, 'address', v)}
+        onSelectAddress={(data) => {
+          updateStopFields(setter, index, {
+            address: data.address,
+            city: data.city || list[index].city,
+            state: data.state || list[index].state,
+            zip: data.zip || list[index].zip,
+          });
+        }}
       />
 
       <div className="grid grid-cols-3 gap-2">
@@ -425,7 +443,11 @@ export const EditLoadModal: React.FC<EditLoadModalProps> = ({
               <button
                 type="button"
                 disabled={isPaid}
-                onClick={() => setIsMultiStop(false)}
+                onClick={() => {
+                  setIsMultiStop(false);
+                  setPickups(prev => [prev[0]]);
+                  setDeliveries(prev => [prev[0]]);
+                }}
                 className={`px-2.5 py-1 rounded-ctl font-semibold transition ${
                   !isMultiStop ? 'bg-surface text-accent shadow-sm' : 'text-fg-3 hover:text-fg'
                 }`}

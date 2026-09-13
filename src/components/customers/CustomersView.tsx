@@ -7,6 +7,7 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import {
   Button, Input, Select, Modal, PageHeader, DataTable,
   StatCard, TopListCard, StatusPill, EmptyState, FilterBar, FilterChips, FilterSearch,
+  AddressAutocomplete,
 } from '../ui';
 import type { Column, TopListItem } from '../ui';
 import { Building2, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -516,13 +517,44 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, invoice
             value={formData.mcNumber || ''}
             onChange={e => setFormData({ ...formData, mcNumber: e.target.value })}
           />
-          <div className="md:col-span-2">
-            <Input
-              label="Billing address*"
+          <div className="md:col-span-2 space-y-3">
+            <AddressAutocomplete
+              label="Billing address"
               required
+              placeholder="Start typing US billing street address…"
               value={formData.billingAddress || ''}
-              onChange={e => setFormData({ ...formData, billingAddress: e.target.value })}
+              onChange={v => setFormData({ ...formData, billingAddress: v })}
+              onSelectAddress={data => {
+                setFormData(prev => ({
+                  ...prev,
+                  billingAddress: data.address,
+                  city: data.city || prev.city,
+                  state: data.state || prev.state,
+                  zip: data.zip || prev.zip,
+                }));
+              }}
             />
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                label="City"
+                placeholder="City"
+                value={formData.city || ''}
+                onChange={e => setFormData({ ...formData, city: e.target.value })}
+              />
+              <Input
+                label="State"
+                placeholder="ST (e.g. GA)"
+                value={formData.state || ''}
+                onChange={e => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+              />
+              <Input
+                label="ZIP Code"
+                placeholder="ZIP"
+                className="tnum"
+                value={formData.zip || ''}
+                onChange={e => setFormData({ ...formData, zip: e.target.value })}
+              />
+            </div>
           </div>
           <Input
             label="Contact person"
