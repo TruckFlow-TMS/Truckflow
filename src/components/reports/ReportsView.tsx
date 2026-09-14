@@ -35,9 +35,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
   const [metricMode, setMetricMode] = useState<'revenue' | 'count'>('revenue');
 
   /**
-   * Evaluate Win vs Loss for a load:
-   * Win: RPM >= $3.20 or net profit >= 0
-   * Loss: RPM < $3.20 or net profit < 0
+   * Evaluate Performance for a load:
+   * High Margin (Win): RPM >= $3.20 or net profit >= 0
+   * Low Margin (Underperforming): RPM < $3.20 or net profit < 0
    */
   const evaluateLoad = (l: Load) => {
     const rate = l.rateMinor / 100;
@@ -62,7 +62,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
 
   /**
    * Build Monthly Data:
-   * For EVERY MONTH, calculates two columns: WINS (Green) and LOSSES (Red) side-by-side.
+   * For EVERY MONTH, calculates two columns: HIGH MARGIN (Green) and LOW MARGIN (Red) side-by-side.
    */
   const monthlyData = MONTHS.map((m, idx) => {
     // Standard baseline distribution for full 12-month visual rendering
@@ -111,9 +111,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
     const summary = [
       ['Gross revenue', usd(grossRevenue)],
       ['Total loads', String(loads.length)],
-      ['Winning loads (Green)', String(winningLoads.length)],
-      ['Loss loads (Red)', String(losingLoads.length)],
-      ['Win rate %', `${winPercentage}%`],
+      ['High Margin Loads (Green)', String(winningLoads.length)],
+      ['Low Margin Loads (Red)', String(losingLoads.length)],
+      ['Margin Efficiency %', `${winPercentage}%`],
     ]
       .map(([k, v]) => `<div class="kpi"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
       .join('');
@@ -131,7 +131,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
 
     const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Nune Express — Monthly Wins & Losses Report ${stamp}</title>
+<title>Nune Express — Monthly Margin Performance Report ${stamp}</title>
 <style>
   @page { size: letter landscape; margin: 14mm; }
   * { box-sizing: border-box; }
@@ -155,17 +155,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
 </style></head>
 <body>
   <header>
-    <h1>Monthly Wins &amp; Losses Comparison Report</h1>
-    <p class="meta">Nune Express &middot; generated ${esc(issued.toLocaleString('en-US'))} &middot; 2 columns per month (Green = Wins, Red = Losses)</p>
+    <h1>Monthly Margin &amp; Yield Performance Report</h1>
+    <p class="meta">Nune Express &middot; generated ${esc(issued.toLocaleString('en-US'))} &middot; 2 columns per month (Green = High Margin, Red = Low Margin)</p>
   </header>
   <dl class="kpis">${summary}</dl>
   <table>
-    <caption>Monthly Performance (Wins vs Losses)</caption>
+    <caption>Monthly Performance (High Margin vs Low Margin)</caption>
     <thead><tr>
       <th>Month</th>
-      <th class="num">Wins Column (Green)</th>
-      <th class="num">Losses Column (Red)</th>
-      <th class="num">Net Spread</th>
+      <th class="num">High Margin Column (Green)</th>
+      <th class="num">Low Margin Column (Red)</th>
+      <th class="num">Net Margin Spread</th>
     </tr></thead>
     <tbody>${monthRows}</tbody>
   </table>
@@ -197,14 +197,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
     fontSize: '12px',
     color: cssVar('fg'),
   };
-  const greenColor = '#16a34a'; // Green for Wins
-  const redColor = '#dc2626';   // Red for Losses
+  const greenColor = '#16a34a'; // Green for High Margin
+  const redColor = '#dc2626';   // Red for Low Margin
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Monthly Wins & Losses Analytics"
-        subtitle="Monthly performance breakdown featuring two side-by-side columns (Green = Wins, Red = Losses) for every month."
+        title="Monthly Margin & Yield Analytics"
+        subtitle="Monthly performance breakdown featuring two side-by-side columns (Green = High Margin, Red = Low Margin) for every month."
         actions={
           <Button variant="secondary" icon={<FileDown size={13} />} onClick={handleExportPDF}>
             Export PDF report
@@ -220,16 +220,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
           sub={`Across ${loads.length} loads`}
         />
         <StatCard
-          label="Winning Loads (Green)"
+          label="High Margin (Green)"
           value={`${winningLoads.length}`}
           sub={
             <span className="text-pos font-semibold">
-              ${totalWinRevenue.toLocaleString('en-US', { minimumFractionDigits: 0 })} profitable
+              ${totalWinRevenue.toLocaleString('en-US', { minimumFractionDigits: 0 })} high yield
             </span>
           }
         />
         <StatCard
-          label="Loss / Low Margin (Red)"
+          label="Low Margin (Red)"
           value={`${losingLoads.length}`}
           sub={
             <span className="text-danger font-semibold">
@@ -240,9 +240,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
         <StatCard
           variant="ring"
           ringPct={winPercentage}
-          label="Win Ratio"
+          label="Margin Efficiency"
           value={`${winPercentage}%`}
-          sub="Profitable vs total loads"
+          sub="High margin vs total loads"
         />
       </div>
 
@@ -252,7 +252,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
           <div className="flex items-center justify-between w-full">
             <h3 className="text-[14px] font-semibold text-fg flex items-center gap-2">
               <BarChart2 size={16} className="text-accent" />
-              <span>Monthly Wins & Losses (Two Columns Per Month: Green = Wins, Red = Losses)</span>
+              <span>Monthly Margin Performance (Two Columns Per Month: Green = High Margin, Red = Low Margin)</span>
             </h3>
             <div className="inline-flex rounded-ctl bg-surface-2 border border-bd p-0.5 text-[11px]">
               <button
@@ -292,13 +292,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ loads }) => {
                   metricMode === 'revenue'
                     ? `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
                     : `${val} loads`,
-                  name === 'wins' ? 'Wins (Green Column)' : 'Losses (Red Column)',
+                  name === 'wins' ? 'High Margin (Green Column)' : 'Low Margin (Red Column)',
                 ]}
               />
               <Legend
                 formatter={(value: any) => (
                   <span className="text-[12px] font-semibold text-fg">
-                    {value === 'wins' ? '🟢 Wins (Green Column)' : '🔴 Losses (Red Column)'}
+                    {value === 'wins' ? '🟢 High Margin (Green Column)' : '🔴 Low Margin (Red Column)'}
                   </span>
                 )}
               />
